@@ -1,12 +1,3 @@
-// This route streams newline-delimited JSON events so the UI can show progress while the model runs.
-// Format (one JSON object per line):
-//   { type: "progress", stage: string, detail?: string }
-//   { type: "done", payload: FlowResponse }
-//   { type: "error", message: string }
-//
-// Stage strings ("classifying", "fetching_notices", etc) are consumed by the loading UI.
-// Keep stage names stable unless you update the frontend too.
-
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { generateObject } from "ai";
@@ -61,10 +52,10 @@ function createStream() {
   return { stream, emit, close };
 }
 
-// notice selection
+// Notice selection.
 // scoreTitle: crude keyword matching against notice titles.
 // selectNotices:
-//   1) ask model for 1–3 generic “supply descriptions” (worded like notice titles)
+//   1) ask model for 1 to 3 generic supply descriptions
 //   2) rank notices using those words
 //   3) ask model to pick the minimum set of notices from the ranked candidate list
 // Output = list of basePath strings (deduped, validated).
@@ -88,27 +79,29 @@ async function selectNotices(
     detail: "Classifying your supply…",
   });
 
-  // giving examples to via few shot prompt to help it understand the style of descriptions we want back
+  // Few-shot prompt to keep the descriptions in the style we want.
+  // The extra isPhysicalGood flag lets us bias selection toward notice 700 where relevant.
   const classified = await generateObject({
     model: "openai/gpt-4o-mini",
     schema: z.object({
       supplyDescriptions: z.array(z.string()).min(1).max(3),
       isAmbiguous: z.boolean(),
+      isPhysicalGood: z.boolean(),
     }),
     prompt: [
       "Identify the primary legal nature of the supply for UK VAT purposes.",
       "",
-      "CRITICAL CLASSIFICATION RULES:",
-      "1. PHYSICAL VESSELS: If the item is a container (bottle, tin, box, jar), you MUST describe it as a 'vessel' or 'container' as well as its contents.",
-      "2. SERVICES: If no physical object exists, describe the 'nature of the activity' (e.g., 'professional consultancy', 'admission to event').",
-      "3. HIERARCHY: Prioritize the 'General VAT Guide' keywords if an item is a standard consumer good not clearly falling under a specific relief (like Food, Health, or Books).",
+      "Rules:",
+      "1. Return short supply descriptions that would help identify the correct VAT Notice.",
+      "2. If the query is ambiguous, return one description per plausible interpretation (max 3).",
+      "3. If the query refers to a physical good, set isPhysicalGood=true.",
+      "4. Do not collapse a supply into one component if the query could refer to a finished product.",
+      "5. Prefer ordinary commercial descriptions over abstract tax labels.",
       "",
       "Examples:",
-      "  'water bottle' -> ['plastic vessel container', 'general consumer goods']",
-      "  'bottled water' -> ['drinking mineral water', 'food products']",
-      "  'GP appointment' -> ['medical healthcare service', 'health professional']",
-      "  'architect fees' -> ['professional services', 'construction land']",
-      "  'kids shoes' -> ['childrens footwear', 'young childrens clothing']",
+      "  'bottled water' -> supplyDescriptions: ['bottled drinking water', 'food products beverage'], isAmbiguous: false, isPhysicalGood: true",
+      "  'water bottle' -> supplyDescriptions: ['drinking bottle container', 'general consumer goods'], isAmbiguous: false, isPhysicalGood: true",
+      "  'GP appointment' -> supplyDescriptions: ['medical healthcare service'], isAmbiguous: false, isPhysicalGood: false",
       "",
       `Query: ${userText}`,
     ].join("\n"),
@@ -149,23 +142,23 @@ async function selectNotices(
     schema: PickSchema,
     prompt: [
       "Pick the minimum set of VAT Notices needed to determine VAT liability for the query.",
-      "- You may ONLY pick from the provided list.",
-      "- Prefer specific notices over general ones.",
-      "- Only pick the general VAT guide (notice 700) if no specific notice covers this supply type.",
-      "- If the supply is ambiguous, pick notices for ALL plausible interpretations.",
-      "- ALWAYS include the general VAT guide (Notice 700) if the item is a physical good, to provide a standard-rate baseline.",
-      `- Return between 1 and ${maxPick} basePath strings.`,
+      "You may ONLY pick from the provided list.",
+      "Prefer specific notices over general ones.",
+      "If the supply is ambiguous, include notices for all plausible interpretations.",
+      "If the query concerns a physical good, include VAT Notice 700 unless it is already unnecessary because a more specific notice clearly covers the full issue.",
+      `Return between 1 and ${maxPick} basePath strings.`,
       "",
       `Query: ${userText}`,
       `Supply descriptions: ${classified.object.supplyDescriptions.join(" | ")}`,
       `Ambiguous: ${classified.object.isAmbiguous}`,
+      `Physical good: ${classified.object.isPhysicalGood}`,
       "",
       "Notices (title | basePath):",
       candidates.map((r) => `${r.title} | ${r.basePath}`).join("\n"),
     ].join("\n"),
   });
 
-  // Validate model output against the known index (prevents hallucinated basePaths).
+  // Validate model output against the known index so we never accept hallucinated basePaths.
   const allowed = new Set(index.map((i) => i.basePath));
   const valid = picked.object.picks.filter((p) => allowed.has(p));
 
@@ -178,12 +171,13 @@ async function selectNotices(
       };
 }
 
-// Evidence pooling/scoring
-// scoreParagraph: crude term matching + small boost for VAT treatment keywords.
+// Evidence pooling/scoring.
+// scoreParagraph: term matching with a light boost for decisive treatment and exclusion wording.
 // buildEvidencePool:
-//   - fetch notice docs for chosen basePaths
-//   - pick top paragraphs per doc
-//   - then re-rank globally and cap total
+//   1) fetch notice docs for chosen basePaths
+//   2) find top anchor paragraphs per doc
+//   3) expand each anchor into a local window so the model sees the surrounding rule/exceptions
+//   4) re-rank globally and cap total
 // Output = EvidencePara[] with stable poolIndex (used as cite ids everywhere else).
 
 function scoreParagraph(text: string, terms: string[]) {
@@ -193,12 +187,19 @@ function scoreParagraph(text: string, terms: string[]) {
   // Reward paragraphs that actually discuss the supply terms.
   for (const term of terms) {
     if (!term) continue;
-    if (t.includes(term)) score += 1;
+    if (t.includes(term)) score += 2;
   }
 
+  // Small boost only. This is here to help surface decisive wording,
+  // not to let treatment language overpower supply context.
   if (
-    t.includes("zero-rated") ||
+    t.includes("except") ||
+    t.includes("unless") ||
+    t.includes("provided that") ||
+    t.includes("excluding") ||
+    t.includes("excepted item") ||
     t.includes("standard-rated") ||
+    t.includes("zero-rated") ||
     t.includes("reduced rate") ||
     t.includes("exempt")
   ) {
@@ -209,7 +210,8 @@ function scoreParagraph(text: string, terms: string[]) {
 }
 
 function mergeColonParagraphs(paragraphs: { index: number; text: string }[]) {
-  //ensure the model sees multi-line paragraphs as one chunk (e.g., a condition followed by its consequence)
+  // Ensure the model sees multi-line paragraphs as one chunk
+  // for example, a condition followed by its consequence.
   const merged: { index: number; text: string }[] = [];
   let i = 0;
   while (i < paragraphs.length) {
@@ -237,7 +239,7 @@ async function buildEvidencePool(
   queryTerms: string[],
   emit: (e: ProgressEvent) => void,
 ) {
-  // UI stage: fetching notice docs
+  // UI stage: fetching notice docs.
   emit({
     type: "progress",
     stage: "fetching_notices",
@@ -246,43 +248,57 @@ async function buildEvidencePool(
 
   const docs = await Promise.all(basePaths.map(resolveGovUkDoc));
 
-  // UI stage: scoring paragraphs
+  // UI stage: scoring paragraphs.
   emit({
     type: "progress",
     stage: "scoring_paragraphs",
     detail: "Scoring paragraphs for relevance…",
   });
 
-  // Limits: cap per doc + cap total so the prompt stays bounded.
-  const PER_DOC = 40;
-  const MAX_TOTAL = 160;
+  // Instead of snatching isolated high-scoring paragraphs, anchor on the best hits
+  // and then pull in the surrounding local window so exclusions/conditions travel
+  // with the main rule.
+  const MAX_ANCHORS_PER_DOC = 8;
+  const WINDOW_BEFORE = 2;
+  const WINDOW_AFTER = 14;
+  const MAX_TOTAL = 220;
 
   const candidates: Omit<EvidencePara, "poolIndex">[] = [];
   const seen = new Set<string>();
 
   for (const doc of docs) {
-    const top = mergeColonParagraphs(doc.paragraphs)
-      .slice(0, 800)
+    const merged = mergeColonParagraphs(doc.paragraphs).slice(0, 1200);
+
+    const anchors = merged
       .map((p) => ({ p, s: scoreParagraph(p.text, queryTerms) }))
       .filter((x) => x.s > 0)
       .sort((a, b) => b.s - a.s)
-      .slice(0, PER_DOC);
+      .slice(0, MAX_ANCHORS_PER_DOC);
 
-    // Deduplicate paragraphs across docs by (basePath + paragraph index).
-    for (const { p } of top) {
-      const key = `${doc.basePath}:${p.index}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      candidates.push({
-        basePath: doc.basePath,
-        webUrl: doc.webUrl,
-        docParagraphIndex: p.index,
-        text: p.text,
-      });
+    for (const anchor of anchors) {
+      const start = Math.max(0, anchor.p.index - WINDOW_BEFORE);
+      const end = Math.min(
+        doc.paragraphs.length,
+        anchor.p.index + WINDOW_AFTER + 1,
+      );
+
+      for (let i = start; i < end; i++) {
+        const p = doc.paragraphs[i];
+        const key = `${doc.basePath}:${p.index}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        candidates.push({
+          basePath: doc.basePath,
+          webUrl: doc.webUrl,
+          docParagraphIndex: p.index,
+          text: p.text,
+        });
+      }
     }
   }
 
-  // Global re-rank and assign poolIndex (this becomes the cite id).
+  // Global re-rank and assign poolIndex.
+  // poolIndex becomes the cite id used everywhere else in this route.
   return candidates
     .map((e) => ({ e, s: scoreParagraph(e.text, queryTerms) }))
     .sort((a, b) => b.s - a.s)
@@ -291,8 +307,8 @@ async function buildEvidencePool(
     .map((e, i) => ({ ...e, poolIndex: i }));
 }
 
-// citation safety helpers
-// localWindow: build an allowed set around indices (prevents far-away/hallucinated blockers).
+// Citation safety helpers.
+// localWindow: build an allowed set around indices.
 // filterLocal: keep only indices in the allowed set.
 // assertInRange: hard guardrail so we never emit out-of-range cite indices.
 
@@ -383,7 +399,7 @@ function computeNeedsReview(basePaths: string[], citedSnippets: string[]) {
 }
 
 // buildSupplyContext: inject “fixed attributes” so the model treats prior answers as hard constraints.
-// This is here to stop repeated questions and stop it from “assuming away” conditions.
+// This is here to stop repeated questions and stop it from assuming away conditions.
 
 function buildSupplyContext(
   userText: string,
@@ -398,8 +414,8 @@ function buildSupplyContext(
     "",
     "INSTRUCTIONS:",
     "1. You must treat FIXED ATTRIBUTES as absolute truth.",
-    "2. If a legal branch in a VAT notice is resolved by an attribute (e.g., if 'Cold food' is confirmed, you must skip the 'Hot food' rules), you are FORBIDDEN from asking about it again.",
-    "3. Do not ask the user to choose legal labels like 'Catering' or 'Excepted Item'. Ask for physical facts (e.g., 'Is it sold in a sealed bag?').",
+    "2. If a legal branch in a VAT notice is resolved by an attribute, you are FORBIDDEN from asking about it again.",
+    "3. Do not ask the user to choose legal labels. Ask for physical or observable facts only.",
   ].join("\n");
 }
 
@@ -422,17 +438,28 @@ const QuestionSchema = z.object({
   citeParagraphs: z.array(z.number().int().nonnegative()).min(1),
 });
 
+const AuditStepSchema = z.object({
+  text: z.string().min(1),
+  cites: z.array(z.number().int().nonnegative()).min(1).max(8),
+});
+
 const ReadSchema = z.object({
   status: z.enum(["ANSWER", "NEED_CLARIFICATION"]),
-  supportCites: z.array(z.number().int().nonnegative()).min(1).max(3),
-  blockerCites: z.array(z.number().int().nonnegative()).max(6),
+  auditGauntlet: z.object({
+    candidateRelief: AuditStepSchema,
+    exclusionSearch: AuditStepSchema,
+    conflictCheck: AuditStepSchema,
+    defaultRateComparison: AuditStepSchema,
+  }),
+  supportCites: z.array(z.number().int().nonnegative()).min(1).max(6),
+  blockerCites: z.array(z.number().int().nonnegative()).max(8),
   conclusion: z.string().nullable(),
   vatRate: z.enum(["zero", "reduced", "standard", "exempt"]).nullable(),
   reasoningBullets: z
     .array(
       z.object({
         text: z.string().min(1),
-        cites: z.array(z.number().int().nonnegative()).min(1).max(6),
+        cites: z.array(z.number().int().nonnegative()).min(1).max(8),
       }),
     )
     .nullable(),
@@ -448,16 +475,17 @@ const ForceAnswerSchema = z.object({
     .array(
       z.object({
         text: z.string().min(1),
-        cites: z.array(z.number().int().nonnegative()).min(1).max(6),
+        cites: z.array(z.number().int().nonnegative()).min(1).max(8),
       }),
     )
     .min(1)
     .max(8),
-  citeParagraphs: z.array(z.number().int().nonnegative()).min(1).max(12),
+  citeParagraphs: z.array(z.number().int().nonnegative()).min(1).max(16),
 });
 
 // Prompt builders.
-// buildReadPrompt: model must either answer (with bullet cites) or return NEED_CLARIFICATION with a concrete unresolved fact.
+// buildReadPrompt: model must either answer or return NEED_CLARIFICATION.
+// The auditGauntlet forces it to show its working at each stage with grounded cites.
 // buildAskPrompt: generate exactly one question with options, each option tied to a cite.
 // buildForceAnswerPrompt: used when we’ve hit the question limit; returns conditional rules instead of looping.
 
@@ -468,49 +496,26 @@ function buildReadPrompt(
 ) {
   const supplyContext = buildSupplyContext(userText, priorAnswers);
   return [
-    "You are a Senior VAT Auditor. Your job is to find the legal VAT rate using ONLY the provided evidence.",
+    "You are a Senior VAT Auditor. Use ONLY the provided evidence.",
     "",
-    "### THE STRICT CONDITIONALITY RULE",
-    "VAT law is defined by exceptions. If a paragraph says 'X applies UNLESS/EXCEPT/PROVIDED THAT Y', you are BLOCKED from concluding X until Y is known.",
-    "- If FIXED ATTRIBUTES already define Y, you must not ask again.",
-    "- If Y is unknown and it would change the outcome, you must set status=NEED_CLARIFICATION.",
-    "- NEVER assume a condition is absent just because it isn't mentioned.",
+    "You must follow this exact sequence before concluding any VAT treatment:",
+    "1. CANDIDATE RELIEF: Identify the paragraph(s) that appear to grant exemption, reduced rate, or zero-rate.",
+    "2. EXCLUSION SEARCH: Search the provided evidence for exceptions, excepted items, exclusions, override wording, or narrower conditions that could block that relief.",
+    "3. CONFLICT CHECK: Check whether another more specific notice or paragraph gives a different treatment for the same factual supply.",
+    "4. DEFAULT RATE COMPARISON: If the relief route is blocked, contradicted, or unproven, compare against the standard-rate/default position before concluding.",
     "",
-    "### HIERARCHY OF REVIEW",
-    "1. EXEMPTION: Check evidence for exemption conditions.",
-    "2. REDUCED RATE (5%): Check evidence for reduced-rate conditions.",
-    "3. ZERO-RATE: Check evidence for zero-rate conditions and any disqualifying conditions.",
-    "4. STANDARD-RATE: Conclude only if evidence supports it or other outcomes are not supported.",
-    "",
-    "### REQUIRED FIELDS (DO NOT OMIT KEYS)",
-    "Return ALL keys every time, even if null/empty:",
-    "- status",
-    "- supportCites (1–3 integers)",
-    "- blockerCites (array; [] if not applicable)",
-    "- conclusion (string or null)",
-    "- reasoningBullets (array or null)",
-    "- unresolvedBranch (string or null)",
-    "",
-    "### MODE RULES (MUST FOLLOW)",
-    "If status=ANSWER:",
-    "- conclusion MUST be a non-empty string",
-    "- reasoningBullets MUST be a non-empty array",
-    "- blockerCites MUST be []",
-    "- unresolvedBranch MUST be null",
-    "",
-    "If status=NEED_CLARIFICATION:",
-    "- conclusion MUST be null",
-    "- reasoningBullets MUST be null",
-    "- blockerCites MUST be non-empty and must contain the paragraph(s) that state the blocking condition(s)",
-    "- unresolvedBranch MUST be a concrete observable fact the user can answer (not a legal label)",
-    "",
-    "### CITATION DISCIPLINE",
-    "- supportCites: 1–3 paragraph indices you are relying on for the path you are taking.",
-    "- blockerCites: ONLY the paragraph indices that actually contain the blocking condition text.",
+    "STRICT RULES:",
+    "You must ground each auditGauntlet field in citations from the evidence pool.",
+    "Do not say you checked a stage unless you cite the paragraph(s) used for that stage.",
+    "Never assume a missing condition is satisfied.",
+    "Never stop at the first plausible relief paragraph.",
+    "If a decisive fact is missing and would change the outcome, set status=NEED_CLARIFICATION.",
+    "If status=ANSWER, blockerCites must be empty.",
+    "If status=NEED_CLARIFICATION, blockerCites must cite the paragraph(s) creating the uncertainty or block.",
     "",
     supplyContext,
     "",
-    "### EVIDENCE (index | source | text)",
+    "EVIDENCE (index | source | text):",
     evidence
       .map(
         (p) =>
@@ -518,7 +523,6 @@ function buildReadPrompt(
       )
       .join("\n\n"),
     "",
-    "- vatRate: one of: 'zero', 'reduced', 'standard', 'exempt' — set this when status=ANSWER, otherwise null.",
     "Return JSON only.",
   ].join("\n");
 }
@@ -537,7 +541,7 @@ function buildAskPrompt(
   // Build a local evidence slice around support + blocker cites to keep the ask prompt tight.
   const indices = new Set<number>([...supportCites, ...blockerCites]);
   for (const idx of Array.from(indices)) {
-    for (let j = idx - 2; j <= idx + 2; j++) {
+    for (let j = idx - 3; j <= idx + 3; j++) {
       if (j >= 0 && j < evidence.length) indices.add(j);
     }
   }
@@ -550,21 +554,15 @@ function buildAskPrompt(
     "You are a VAT clarification assistant. Generate exactly one question to resolve the blocking condition described below.",
     "",
     "Rules:",
-    "- Your question MUST resolve the blocking condition; do not ask unrelated checks.",
-    "- Ask about an observable factual characteristic only — something the user can see, measure or verify.",
-    "- FORBIDDEN: asking whether legal conditions or VAT concessions are 'met'.",
-    "- FORBIDDEN: asking the user to make legal classifications of any kind.",
-    "- FORBIDDEN: options that restate VAT outcomes (zero-rated, standard-rated, exempt, etc.).",
-    "- Options must NOT be VAT rates.",
-    "- BAD question: 'Does this meet zero-rated conditions?' — this is a legal classification.",
-    "- GOOD question: 'Is the product sold at above room temperature?' — this is an observable fact.",
-    "- Each option MUST cite the paragraph that defines the option/branch.",
-    "- option.value MUST be a short stable token (e.g., YES/NO, HOT/NOT_HOT)",
-    `- Do NOT use any of these question ids: ${JSON.stringify(priorAsked)}`,
+    "Ask only about an observable factual characteristic.",
+    "Do not ask the user to make a legal classification.",
+    "Options must not be VAT outcomes.",
+    "Each option must cite the paragraph that defines the branch or condition.",
+    `Do NOT use any of these question ids: ${JSON.stringify(priorAsked)}`,
     "",
     supplyContext,
     "",
-    `Blocking condition to resolve (factual): ${unresolvedBranch}`,
+    `Blocking condition to resolve: ${unresolvedBranch}`,
     "",
     "Evidence (local region only):",
     merged
@@ -586,9 +584,9 @@ function buildForceAnswerPrompt(
   const supplyContext = buildSupplyContext(userText, priorAnswers);
   return [
     "You have already asked the maximum number of clarifying questions.",
-    "Give the most specific VAT liability conclusion the evidence supports given what you know.",
+    "Give the most specific VAT liability conclusion the evidence supports.",
     "If the branch is still unresolved, give the VAT rule for each possible branch rather than refusing.",
-    "Do NOT say 'insufficient evidence' if you can give conditional rules instead.",
+    "Do not invent certainty.",
     "",
     supplyContext,
     "",
@@ -600,9 +598,39 @@ function buildForceAnswerPrompt(
       )
       .join("\n\n"),
     "",
-    "- vatRate: one of: 'zero', 'reduced', 'standard', 'exempt' — your best determination given what you know, or null if genuinely conditional.",
     "Return JSON only.",
   ].join("\n");
+}
+
+// Read helpers.
+// collectReadCites: gather every cite the model relied on across the gauntlet and final reasoning.
+// validateReadObject: hard guardrails so every cited index is in range before we trust the output.
+
+function collectReadCites(read: z.infer<typeof ReadSchema>) {
+  return Array.from(
+    new Set([
+      ...read.supportCites,
+      ...read.blockerCites,
+      ...read.auditGauntlet.candidateRelief.cites,
+      ...read.auditGauntlet.exclusionSearch.cites,
+      ...read.auditGauntlet.conflictCheck.cites,
+      ...read.auditGauntlet.defaultRateComparison.cites,
+      ...(read.reasoningBullets?.flatMap((b) => b.cites) ?? []),
+    ]),
+  );
+}
+
+function validateReadObject(read: z.infer<typeof ReadSchema>, maxIdx: number) {
+  assertInRange(read.supportCites, maxIdx);
+  assertInRange(read.blockerCites ?? [], maxIdx);
+  assertInRange(read.auditGauntlet.candidateRelief.cites, maxIdx);
+  assertInRange(read.auditGauntlet.exclusionSearch.cites, maxIdx);
+  assertInRange(read.auditGauntlet.conflictCheck.cites, maxIdx);
+  assertInRange(read.auditGauntlet.defaultRateComparison.cites, maxIdx);
+
+  for (const b of read.reasoningBullets ?? []) {
+    assertInRange(b.cites, maxIdx);
+  }
 }
 
 // Route handler.
@@ -631,7 +659,8 @@ export async function POST(req: Request) {
 
       // Merge newly answered values into the running state.
       for (const a of parsed.data.answered ?? []) priorAnswers[a.id] = a.value;
-      // Used for notice selection (includes prior answers to reduce ambiguity).
+
+      // Used for notice selection. Includes prior answers to reduce ambiguity.
       const mergedQuery = [
         userText,
         ...Object.values(priorAnswers).map(String),
@@ -660,7 +689,8 @@ export async function POST(req: Request) {
       // Stage 3+4: fetch and rank evidence paragraphs into a single pool.
       const evidence = await buildEvidencePool(basePaths, queryTerms, emit);
 
-      // Evidence output shape sent to frontend (includes stable paragraphIndex = poolIndex).
+      // Evidence output shape sent to frontend.
+      // paragraphIndex = poolIndex so citations stay stable across the response.
       const evidenceOut = evidence.map((e) => ({
         url: e.webUrl,
         basePath: e.basePath,
@@ -671,7 +701,8 @@ export async function POST(req: Request) {
 
       const maxIdx = evidence.length;
 
-      // Stage 5: “read” step — decide ANSWER vs NEED_CLARIFICATION.
+      // Stage 5: “read” step.
+      // The model must either answer or return NEED_CLARIFICATION with a grounded blocker.
       emit({
         type: "progress",
         stage: "analysing",
@@ -685,11 +716,24 @@ export async function POST(req: Request) {
       });
 
       // Guardrails: never allow out-of-range cites.
-      assertInRange(read.object.supportCites, maxIdx);
-      assertInRange(read.object.blockerCites ?? [], maxIdx);
+      validateReadObject(read.object, maxIdx);
 
-      // Only allow blockers that are local to the supports (prevents random far-away blockers).
-      const allowed = localWindow(read.object.supportCites, maxIdx, 2);
+      // Only allow blockers that stay near the cites actually used in the gauntlet.
+      // This keeps the model from inventing some unrelated blocker elsewhere in the pool.
+      const allowed = localWindow(
+        Array.from(
+          new Set([
+            ...read.object.supportCites,
+            ...read.object.auditGauntlet.candidateRelief.cites,
+            ...read.object.auditGauntlet.exclusionSearch.cites,
+            ...read.object.auditGauntlet.conflictCheck.cites,
+            ...read.object.auditGauntlet.defaultRateComparison.cites,
+          ]),
+        ),
+        maxIdx,
+        3,
+      );
+
       const validBlockers = filterLocal(read.object.blockerCites, allowed);
 
       const canAsk =
@@ -697,7 +741,8 @@ export async function POST(req: Request) {
         validBlockers.length > 0 &&
         !!read.object.unresolvedBranch;
 
-      // Force-answer path (used when we can’t/shouldn’t ask more questions).
+      // Force-answer path.
+      // Used when we can’t or shouldn’t ask more questions.
       async function emitForceAnswer() {
         emit({
           type: "progress",
@@ -717,7 +762,7 @@ export async function POST(req: Request) {
         const citations = pickMinimalCitations(
           evidenceOut,
           forced.object.bullets.flatMap((b) => b.cites),
-          { maxTotal: 5, maxPerDoc: 2 },
+          { maxTotal: 6, maxPerDoc: 2 },
         );
 
         const needsReview = computeNeedsReview(
@@ -731,7 +776,7 @@ export async function POST(req: Request) {
           answer: {
             conclusion: forced.object.conclusion,
             reasoning: forced.object.bullets.map((b) => b.text),
-            vatRate: read.object.vatRate ?? null,
+            vatRate: forced.object.vatRate ?? null,
           },
           evidencePool: evidenceOut as any,
           citations: citations as any,
@@ -741,11 +786,15 @@ export async function POST(req: Request) {
         emit({ type: "done", payload: FlowResponseSchema.parse(response) });
       }
 
+      const readCites = collectReadCites(read.object);
+
       // Direct answer path.
+      // We only accept an answer if the model has no surviving grounded blockers.
       if (
         read.object.status === "ANSWER" &&
         read.object.conclusion &&
-        read.object.reasoningBullets
+        read.object.reasoningBullets &&
+        validBlockers.length === 0
       ) {
         emit({
           type: "progress",
@@ -753,26 +802,32 @@ export async function POST(req: Request) {
           detail: "Drafting answer…",
         });
 
-        for (const b of read.object.reasoningBullets)
-          assertInRange(b.cites, maxIdx);
-
-        const citations = pickMinimalCitations(
-          evidenceOut,
-          read.object.reasoningBullets.flatMap((b) => b.cites),
-          { maxTotal: 5, maxPerDoc: 2 },
-        );
+        const citations = pickMinimalCitations(evidenceOut, readCites, {
+          maxTotal: 6,
+          maxPerDoc: 2,
+        });
 
         const needsReview = computeNeedsReview(
           basePaths,
           citations.map((c) => c.snippet),
         );
 
+        // Fold the audit gauntlet into the reasoning array so we can expose the path
+        // without changing the shared FlowResponse shape.
+        const reasoning = [
+          read.object.auditGauntlet.candidateRelief.text,
+          read.object.auditGauntlet.exclusionSearch.text,
+          read.object.auditGauntlet.conflictCheck.text,
+          read.object.auditGauntlet.defaultRateComparison.text,
+          ...read.object.reasoningBullets.map((b) => b.text),
+        ];
+
         const response: FlowResponse = {
           state: { answers: priorAnswers, asked: priorAsked, basePaths },
           questions: [],
           answer: {
             conclusion: read.object.conclusion,
-            reasoning: read.object.reasoningBullets.map((b) => b.text),
+            reasoning,
             vatRate: read.object.vatRate ?? null,
           },
           evidencePool: evidenceOut as any,
@@ -790,7 +845,8 @@ export async function POST(req: Request) {
         return;
       }
 
-      // If we can’t justify a local blocker, don’t ask — force answer instead.
+      // If we can’t justify a grounded blocker, don’t ask.
+      // Fall back to the force-answer path instead.
       if (!canAsk) {
         await emitForceAnswer();
         return;
