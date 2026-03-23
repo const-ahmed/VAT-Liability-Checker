@@ -88,6 +88,7 @@ async function selectNotices(
     detail: "Classifying your supply…",
   });
 
+  // giving examples to via few shot prompt to help it understand the style of descriptions we want back
   const classified = await generateObject({
     model: "openai/gpt-4o-mini",
     schema: z.object({
@@ -95,15 +96,19 @@ async function selectNotices(
       isAmbiguous: z.boolean(),
     }),
     prompt: [
-      "Describe the type of good or service being queried in 3-6 generic words per description that would appear in a UK VAT notice title.",
-      "If the query is ambiguous and could refer to multiple supply types with different VAT treatments, return one description per interpretation (max 3).",
-      "If unambiguous, return exactly one description.",
-      "Focus on the supply category, not the brand or specific name.",
+      "Identify the primary legal nature of the supply for UK VAT purposes.",
+      "",
+      "CRITICAL CLASSIFICATION RULES:",
+      "1. PHYSICAL VESSELS: If the item is a container (bottle, tin, box, jar), you MUST describe it as a 'vessel' or 'container' as well as its contents.",
+      "2. SERVICES: If no physical object exists, describe the 'nature of the activity' (e.g., 'professional consultancy', 'admission to event').",
+      "3. HIERARCHY: Prioritize the 'General VAT Guide' keywords if an item is a standard consumer good not clearly falling under a specific relief (like Food, Health, or Books).",
+      "",
       "Examples:",
-      "  'bike' → ['bicycle pedal cycle', 'motorcycle motor vehicle'], isAmbiguous: true",
-      "  'Tesla Model 3' → ['passenger motor vehicle'], isAmbiguous: false",
-      "  'GP appointment' → ['medical healthcare service'], isAmbiguous: false",
-      "  'Deliveroo order' → ['takeaway food catering'], isAmbiguous: false",
+      "  'water bottle' -> ['plastic vessel container', 'general consumer goods']",
+      "  'bottled water' -> ['drinking mineral water', 'food products']",
+      "  'GP appointment' -> ['medical healthcare service', 'health professional']",
+      "  'architect fees' -> ['professional services', 'construction land']",
+      "  'kids shoes' -> ['childrens footwear', 'young childrens clothing']",
       "",
       `Query: ${userText}`,
     ].join("\n"),
@@ -148,6 +153,7 @@ async function selectNotices(
       "- Prefer specific notices over general ones.",
       "- Only pick the general VAT guide (notice 700) if no specific notice covers this supply type.",
       "- If the supply is ambiguous, pick notices for ALL plausible interpretations.",
+      "- ALWAYS include the general VAT guide (Notice 700) if the item is a physical good, to provide a standard-rate baseline.",
       `- Return between 1 and ${maxPick} basePath strings.`,
       "",
       `Query: ${userText}`,
@@ -183,18 +189,22 @@ async function selectNotices(
 function scoreParagraph(text: string, terms: string[]) {
   const t = text.toLowerCase();
   let score = 0;
+
+  // Reward paragraphs that actually discuss the supply terms.
   for (const term of terms) {
     if (!term) continue;
     if (t.includes(term)) score += 1;
   }
+
   if (
     t.includes("zero-rated") ||
     t.includes("standard-rated") ||
     t.includes("reduced rate") ||
     t.includes("exempt")
   ) {
-    score += 2;
+    score += 1;
   }
+
   return score;
 }
 
