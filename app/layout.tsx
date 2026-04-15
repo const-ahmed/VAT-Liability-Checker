@@ -44,9 +44,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // govuk-template on <html> and govuk-template__body on <body> are required
-    // by the design system. Without them the background colour, font inheritance,
-    // and the header's full-width black bar all break.
+    // Both classes are required — without them the background, fonts and header break.
     <html lang="en" className="govuk-template">
       <body className="govuk-template__body">
         {children}

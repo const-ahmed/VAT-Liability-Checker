@@ -76,9 +76,7 @@ export function AnswerScreen({ query, response, onReset }: Props) {
 
               {/* VAT rate result */}
               <h1 className="govuk-heading-xl">VAT liability result</h1>
-              {/* The tag sits below the heading rather than inside it. govuk-tag
-                  is an inline labelling element and shouldn't replace heading
-                  text, which would break the heading hierarchy semantically. */}
+              {/* Tag is below the h1, not inside it — it's a label not a heading. */}
               {vatRate && (
                 <p>
                   <strong className={RATE_TAG_CLASS[vatRate]}>
@@ -87,9 +85,7 @@ export function AnswerScreen({ query, response, onReset }: Props) {
                 </p>
               )}
 
-              {/* The ! icon is aria-hidden and the visually-hidden span prefixes
-                  the text with "Warning" for screen readers. Without this the
-                  icon conveys no meaning to assistive technology. */}
+              {/* ! icon is aria-hidden — the visually-hidden span is what screen readers actually announce. */}
               {response.needsReview && (
                 <div className="govuk-warning-text">
                   <span className="govuk-warning-text__icon" aria-hidden="true">
@@ -118,9 +114,7 @@ export function AnswerScreen({ query, response, onReset }: Props) {
                 ))}
               </ul>
 
-              {/* Sources — govuk-details uses the native <details>/<summary>
-                  disclosure element which works without JS and is part of the
-                  GDS component library. */}
+              {/* govuk-details is native <details>/<summary> — works without JS. */}
               {response.citations.length > 0 && (
                 <>
                   <h2 className="govuk-heading-m">Sources</h2>

@@ -26,9 +26,8 @@ export default function VATInput({
     }
   };
 
-  // aria-describedby always includes the hint and adds the error message id
-  // when there is one. Screen readers announce both when the field is focused
-  // so users hear the context and the error without having to navigate to them.
+  // Always includes the hint id, adds the error id when there is one.
+  // Screen readers announce both on focus.
   const describedBy = [
     "supply-hint",
     hasError ? "supply-input-error" : null,
@@ -52,13 +51,11 @@ export default function VATInput({
         autoComplete="off"
         spellCheck={false}
         aria-describedby={describedBy}
-        // aria-invalid signals the error state to assistive technology
-        // independently of the red border, which is a visual-only cue.
+        // Red border alone doesn't work for screen readers.
         aria-invalid={hasError ? "true" : undefined}
         style={{ flex: 1 }}
       />
-      {/* type="submit" so the form submits natively without JS. A type="button"
-          inside a form does nothing on its own when JavaScript is off. */}
+      {/* type="submit" so the form works without JS — type="button" won't submit. */}
       <button
         className="govuk-button"
         style={{ marginBottom: 0 }}

@@ -4,8 +4,7 @@
 export function Header() {
   return (
     <>
-      {/* Skip link must be the first focusable element on the page.
-          Keyboard users depend on it to jump past navigation. */}
+      {/* First focusable element on the page — keyboard users need this to skip past the header. */}
       <a href="#main-content" className="govuk-skip-link">
         Skip to main content
       </a>
@@ -15,10 +14,8 @@ export function Header() {
         <div className="govuk-header__container govuk-width-container">
           <div className="govuk-header__logo">
             <a href="/" className="govuk-header__homepage-link">
-              {/* govuk-frontend v6 switched from St Edward's Crown to the
-                  Tudor Crown. The SVG is inlined so we always use the right
-                  one rather than referencing a static image that could lag
-                  behind future design system updates. */}
+              {/* v6 changed from St Edward's Crown to Tudor Crown. Inlined so
+                  it can't get out of sync with the design system. */}
               <svg
                 focusable="false"
                 role="img"
@@ -48,10 +45,8 @@ export function Header() {
             </a>
           </div>
 
-          {/* govuk-header__product-name is the v6 way to show the service name.
-              Older versions used govuk-header__link--service-name. The service
-              navigation component was split out separately in v6 so the
-              pattern changed. */}
+          {/* v6 renamed this from govuk-header__link--service-name when service
+              navigation was split into its own component. */}
           <div className="govuk-header__content">
             <span className="govuk-header__product-name">
               VAT Liability Checker

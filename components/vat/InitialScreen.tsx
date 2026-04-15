@@ -72,10 +72,8 @@ export function InitialScreen({
                 or a qualified tax adviser.
               </div>
 
-              {/* GDS requires the error summary to appear before the form in
-                  document order. The linked list inside it points to the field
-                  so keyboard users can jump straight to it rather than having
-                  to tab through the page to find the error. */}
+              {/* Error summary goes before the form — GDS requirement. The linked
+                  list lets keyboard users jump directly to the field. */}
               {error && !loading && (
                 <div
                   className="govuk-error-summary"
@@ -99,10 +97,9 @@ export function InitialScreen({
                 </div>
               )}
 
-              {/* action="/check" is the no-JS fallback. onSubmit intercepts when
-                  JS is available and runs the streaming flow instead. noValidate
-                  stops the browser's own validation UI so we stay in control
-                  of errors and keep them consistent with the GDS pattern. */}
+              {/* action="/check" handles the no-JS case. onSubmit intercepts when
+                  JS is available. noValidate kills browser validation so we
+                  control the error UI. */}
               <form action="/check" method="get" onSubmit={handleFormSubmit} noValidate>
                 <div
                   className={`govuk-form-group${error && !loading ? " govuk-form-group--error" : ""}`}
@@ -118,10 +115,8 @@ export function InitialScreen({
                     they are supplied, and to whom. Press Enter to submit.
                   </div>
 
-                  {/* GDS requires all three of govuk-form-group--error,
-                      govuk-input--error, and govuk-error-message together.
-                      The form group gets the red left bar, the input gets the
-                      red outline, and this message appears above the input. */}
+                  {/* GDS needs all three set together for the full error state —
+                      left bar on the group, red outline on the input, message above it. */}
                   {error && !loading && (
                     <p className="govuk-error-message" id="supply-input-error">
                       <span className="govuk-visually-hidden">Error:</span>

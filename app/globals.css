@@ -1,10 +1,8 @@
-/* govuk-frontend ships unlayered CSS. Tailwind uses @layer. Unlayered styles
-   always win the cascade over layered ones regardless of import order, so the
-   two systems coexist without fighting each other. */
+/* govuk is unlayered, Tailwind uses @layer — unlayered always wins the cascade
+   so the two don't conflict regardless of import order. */
 @import "tailwindcss";
 
-/* All custom colours below use tokens from the GDS colour palette rather than
-   arbitrary values, so nothing visually conflicts with govuk components. */
+/* Custom colours throughout use GDS palette tokens so nothing clashes with govuk components. */
 
 @keyframes govuk-spin {
   to { transform: rotate(360deg); }
@@ -19,9 +17,8 @@
   animation: govuk-fade-in 0.3s ease both;
 }
 
-/* govuk-frontend doesn't ship a loading spinner so this is custom. It uses
-   the GDS blue (#1d70b8) for the active arc and the secondary grey (#b1b4b6)
-   for the track to stay consistent with the design system palette. */
+/* No spinner in govuk-frontend so this is custom, using GDS blue (#1d70b8) for
+   the arc and secondary grey (#b1b4b6) for the track. */
 .govuk-spinner {
   display: inline-block;
   width: 24px;
@@ -79,8 +76,7 @@
 .vat-tag--standard{ background-color: #1d70b8; }
 .vat-tag--exempt  { background-color: #4c2c92; }
 
-/* Left border uses GDS blue to visually tie the reasoning list back to the
-   design system without introducing a new component. */
+/* GDS blue border keeps this visually tied to the design system. */
 .reasoning-list {
   list-style: none;
   padding: 0;

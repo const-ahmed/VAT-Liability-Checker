@@ -66,17 +66,16 @@ export function ClarifierScreen({
 
               <form onSubmit={handleSubmit} noValidate>
                 <div className="govuk-form-group">
-                  {/* Radio groups must be wrapped in a fieldset with a legend.
-                      Without this, screen readers don't know which question the
-                      radios belong to. aria-describedby on the fieldset links
-                      the hint text to the whole group. */}
+                  {/* Fieldset and legend are required for radio groups — without
+                      them screen readers can't associate the question with the
+                      options. aria-describedby on the fieldset links the hint
+                      to the whole group. */}
                   <fieldset
                     className="govuk-fieldset"
                     aria-describedby="clarifier-hint"
                   >
-                    {/* GDS requires the page's main question to be the h1. For
-                        radio pages the question is the legend, so the h1 lives
-                        inside the legend rather than separately above the form. */}
+                    {/* The question has to be the h1. On a radio page that
+                        means the h1 sits inside the legend. */}
                     <legend className="govuk-fieldset__legend govuk-fieldset__legend--l">
                       <h1 className="govuk-fieldset__heading">
                         {q.questionText}

@@ -146,9 +146,8 @@ export function LoadingScreen({ request, onDone, onError }: Props) {
                 <p className="govuk-body">&ldquo;{request.userText}&rdquo;</p>
               </div>
 
-              {/* aria-live="polite" and aria-atomic="true" mean screen readers
-                  announce the current stage as it changes without cutting off
-                  whatever they're currently reading. */}
+              {/* polite means screen readers finish what they're saying before
+                  announcing the stage change. */}
               {!done && (
                 <p className="govuk-body" aria-live="polite" aria-atomic="true">
                   <span
@@ -167,9 +166,8 @@ export function LoadingScreen({ request, onDone, onError }: Props) {
                 </p>
               )}
 
-              {/* All icons in the stage list are aria-hidden because the stage
-                  name text is the meaningful content. aria-current="step" marks
-                  the active item for screen readers. */}
+              {/* Icons are aria-hidden — the text labels are what matter.
+                  aria-current="step" marks the active stage. */}
               <ul className="loading-stage-list" aria-label="Progress steps">
                 {STAGE_ORDER.map((key) => {
                   const record = stages.find((s) => s.stage === key);

@@ -17,9 +17,7 @@ const RATE_TAG_CLASS: Record<string, string> = {
   exempt: "govuk-tag govuk-tag--purple",
 };
 
-// This page is the no-JS fallback. Because it's a server component the full
-// result renders as HTML before it reaches the browser, so there's no blank
-// page or spinner for users without JavaScript.
+// No-JS fallback. Server component so the result is fully rendered HTML — no blank screen.
 export default async function CheckPage({
   searchParams,
 }: {
@@ -29,9 +27,7 @@ export default async function CheckPage({
 
   if (!query) redirect("/");
 
-  // URL is constructed from the incoming request headers rather than a
-  // hardcoded value so it works in local dev and on Vercel without any
-  // extra environment variables.
+  // Built from request headers so it works in dev and on Vercel without hardcoding anything.
   const headersList = headers();
   const host = headersList.get("host") ?? "localhost:3000";
   const proto = headersList.get("x-forwarded-proto") ?? "http";
@@ -47,9 +43,8 @@ export default async function CheckPage({
       body: JSON.stringify({ userText: query }),
     });
 
-    // The API streams NDJSON so we read the full response as text and parse
-    // line by line to find the done event. We don't need to stream it here
-    // since we need the complete result before we can render anything.
+    // API streams NDJSON — read it all as text and pick out the done event.
+    // No point streaming here since we need the full result to render.
     const text = await res.text();
 
     for (const line of text.split("\n")) {
@@ -67,10 +62,8 @@ export default async function CheckPage({
       e instanceof Error ? e.message : "Failed to check VAT liability";
   }
 
-  // Multi-round clarification is intentionally not supported here. Each round
-  // would need its own form POST and server render cycle, which adds real
-  // complexity for a path most users will never hit. We just ask them to
-  // enable JS.
+  // Clarification rounds aren't supported here — too much complexity for a
+  // path most users won't hit. Just ask them to enable JS.
   const needsClarification =
     result !== null && !result.answer && (result.questions?.length ?? 0) > 0;
 
