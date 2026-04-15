@@ -174,4 +174,15 @@ export default function Page() {
       />
     );
   }
+
+  // Fallback: stream errored out — isActive but no data yet. Show InitialScreen with error.
+  return (
+    <InitialScreen
+      draft={draft}
+      setDraft={setDraft}
+      loading={false}
+      error={error}
+      onSubmitInitial={submitInitial}
+    />
+  );
 }

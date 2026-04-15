@@ -2,9 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { FlowResponse } from "@/lib/schemas/flow";
-import { MiniSphere } from "@/components/ui/MiniSphere";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Header } from "@/components/ui/Header";
 
 type Props = {
   query: string;
@@ -30,75 +28,140 @@ export function ClarifierScreen({
 
   const q = response.questions[0];
 
-  function handleSubmit() {
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
     if (!selected || submitting) return;
     setSubmitting(true);
     onSubmitAnswer(q.id, selected);
   }
 
   return (
-    <div
-      className="screen screen--fade"
-      data-visible={visible ? "true" : "false"}
-      data-submitting={submitting ? "true" : "false"}
-    >
-      <div className="cs-inner section">
-        <div className="top-strip">
-          <div className="orb">
-            <div className="cs-orb-glow" />
-            <MiniSphere color="#1d70b8" />
-          </div>
-          <div className="query-block">
-            <p className="neu-eyebrow">Query</p>
-            <p className="query-text">&ldquo;{query}&rdquo;</p>
-          </div>
-          <div className="status-pill">
-            <div className="status-pill__dot" />
-            <span className="status-pill__text">Clarification</span>
-          </div>
-        </div>
+    <>
+      <Header />
 
-        <div className="section">
-          <p className="neu-eyebrow">Clarification needed</p>
-          <p className="cs-question-text">{q.questionText}</p>
-          <p className="cs-reason">{q.reasoning}</p>
-        </div>
-
-        <div className="section">
-          {q.options.map((opt) => {
-            const isSelected = selected === opt.value;
-            return (
-              <Button
-                key={opt.value}
-                variant={isSelected ? "default" : "neutral"}
-                disabled={submitting}
-                onClick={() => !submitting && setSelected(opt.value)}
-                className="cs-option-btn"
-              >
-                <span className="cs-option-label">{opt.label}</span>
-                {opt.description && (
-                  <span className="cs-option-desc">{opt.description}</span>
-                )}
-              </Button>
-            );
-          })}
-        </div>
-
-        {/* Actions */}
-        <div className="actions-row">
-          <Button
-            variant={selected && !submitting ? "default" : "neutral"}
-            onClick={handleSubmit}
-            disabled={!selected || submitting}
+      <div className="govuk-width-container">
+        <main
+          className="govuk-main-wrapper"
+          id="main-content"
+          role="main"
+          style={{ opacity: visible ? 1 : 0, transition: "opacity 0.3s ease" }}
+        >
+          {/* Back link */}
+          <a
+            href="#"
+            className="govuk-back-link"
+            onClick={(e) => {
+              e.preventDefault();
+              onReset();
+            }}
           >
-            {submitting && <span className="spinner" />}
-            {submitting ? "Analysing…" : "Continue →"}
-          </Button>
-          <Button variant="neutral" onClick={onReset}>
-            ← Start over
-          </Button>
-        </div>
+            Start over
+          </a>
+
+          <div className="govuk-grid-row">
+            <div className="govuk-grid-column-two-thirds">
+
+              {/* Query recap */}
+              <p className="govuk-caption-l">{query}</p>
+
+              <form onSubmit={handleSubmit} noValidate>
+                <div className="govuk-form-group">
+                  {/* Radio groups must be wrapped in a fieldset with a legend.
+                      Without this, screen readers don't know which question the
+                      radios belong to. aria-describedby on the fieldset links
+                      the hint text to the whole group. */}
+                  <fieldset
+                    className="govuk-fieldset"
+                    aria-describedby="clarifier-hint"
+                  >
+                    {/* GDS requires the page's main question to be the h1. For
+                        radio pages the question is the legend, so the h1 lives
+                        inside the legend rather than separately above the form. */}
+                    <legend className="govuk-fieldset__legend govuk-fieldset__legend--l">
+                      <h1 className="govuk-fieldset__heading">
+                        {q.questionText}
+                      </h1>
+                    </legend>
+
+                    <div
+                      id="clarifier-hint"
+                      className="govuk-hint"
+                    >
+                      {q.reasoning}
+                    </div>
+
+                    <div className="govuk-radios" data-module="govuk-radios">
+                      {q.options.map((opt) => (
+                        <div className="govuk-radios__item" key={opt.value}>
+                          <input
+                            className="govuk-radios__input"
+                            id={`opt-${opt.value}`}
+                            name="clarifier-answer"
+                            type="radio"
+                            value={opt.value}
+                            checked={selected === opt.value}
+                            onChange={() =>
+                              !submitting && setSelected(opt.value)
+                            }
+                            disabled={submitting}
+                          />
+                          <label
+                            className="govuk-label govuk-radios__label"
+                            htmlFor={`opt-${opt.value}`}
+                          >
+                            {opt.label}
+                          </label>
+                          {opt.description && (
+                            <div
+                              className="govuk-hint govuk-radios__hint"
+                            >
+                              {opt.description}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </fieldset>
+                </div>
+
+                <div className="govuk-button-group">
+                  <button
+                    className="govuk-button"
+                    type="submit"
+                    disabled={!selected || submitting}
+                  >
+                    {submitting ? "Analysing…" : "Continue"}
+                  </button>
+                  <a
+                    href="#"
+                    className="govuk-link"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onReset();
+                    }}
+                  >
+                    Cancel
+                  </a>
+                </div>
+              </form>
+
+            </div>
+          </div>
+        </main>
       </div>
-    </div>
+
+      <footer className="govuk-footer">
+        <div className="govuk-width-container">
+          <div className="govuk-footer__meta">
+            <div className="govuk-footer__meta-item govuk-footer__meta-item--grow">
+              <p className="govuk-body-s govuk-!-colour-secondary">
+                VAT rates and rules are set by HMRC. This tool uses GOV.UK
+                guidance and is not a substitute for professional advice.
+              </p>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </>
   );
 }

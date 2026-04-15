@@ -3,8 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { FlowResponse } from "@/lib/schemas/flow";
 import { Header } from "@/components/ui/Header";
-import { MolecularSphere } from "@/components/ui/Sphere";
-import { Badge } from "@/components/ui/badge";
 
 const STAGE_META: Record<string, string> = {
   classifying: "Classifying supply",
@@ -78,9 +76,10 @@ export function LoadingScreen({ request, onDone, onError }: Props) {
             if (event.type === "progress") {
               setActive(event.stage);
               setStages((prev) => {
-                // Mark the previous stage complete, then append the new one
                 const next = prev.map((s) =>
-                  s.completedAt == null ? { ...s, completedAt: Date.now() } : s,
+                  s.completedAt == null
+                    ? { ...s, completedAt: Date.now() }
+                    : s,
                 );
                 if (!next.find((s) => s.stage === event.stage))
                   next.push({ stage: event.stage, detail: event.detail });
@@ -91,7 +90,9 @@ export function LoadingScreen({ request, onDone, onError }: Props) {
             if (event.type === "done") {
               setStages((prev) =>
                 prev.map((s) =>
-                  s.completedAt == null ? { ...s, completedAt: Date.now() } : s,
+                  s.completedAt == null
+                    ? { ...s, completedAt: Date.now() }
+                    : s,
                 ),
               );
               setActive(null);
@@ -126,74 +127,136 @@ export function LoadingScreen({ request, onDone, onError }: Props) {
 
   const fmt = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
   const completedCount = stages.filter((s) => s.completedAt != null).length;
-  const pct = Math.round((completedCount / STAGE_ORDER.length) * 100);
 
   return (
     <>
       <Header />
 
-      <div className="screen">
-        {/* Sphere */}
-        <div className="ls-sphere-wrap">
-          <div
-            className={`ls-sphere-glow ${done ? "ls-sphere-glow--done" : "ls-sphere-glow--active"}`}
-          />
-          <div className="ls-sphere-ring ls-sphere-ring--inner" />
-          <div className="ls-sphere-ring ls-sphere-ring--outer" />
+      <div className="govuk-width-container">
+        <main className="govuk-main-wrapper" id="main-content" role="main">
+          <div className="govuk-grid-row">
+            <div className="govuk-grid-column-two-thirds">
 
-          <MolecularSphere done={done} />
+              <h1 className="govuk-heading-l">
+                {done ? "Analysis complete" : "Analysing your query"}
+              </h1>
 
-          <div className="ls-progress">
-            <div
-              className="ls-progress-line"
-              style={{ width: `${pct * 1.2}px` }}
-            />
-            <span className="ls-progress-label">
-              {done ? "complete" : `${pct}%`}
-            </span>
-          </div>
-        </div>
-
-        {/* Body card */}
-        <div className="screen-body screen-body--card screen-body--narrow">
-          {/* Query */}
-          <div className="ls-query">
-            Query
-            <p className="ls-query-text">&ldquo;{request.userText}&rdquo;</p>
-          </div>
-
-          {/* Pipeline */}
-          <div className="section-hdr">
-            <span className="ls-elapsed">{fmt(elapsed)}</span>
-          </div>
-
-          <div className="section">
-            {done ? (
-              <div className="tl-row">
-                <div className="ls-stage-tile">
-                  <div className="tl-dot tl-dot--done" />
-                  <div className="ls-stage-name">Complete</div>
-                </div>
+              {/* Query text */}
+              <div className="govuk-inset-text">
+                <p className="govuk-body">&ldquo;{request.userText}&rdquo;</p>
               </div>
-            ) : active ? (
-              <div className="tl-row tl-row--animated">
-                <div className="ls-stage-tile">
-                  <div className="tl-dot tl-dot--active" />
-                  <div className="ls-stage-text">
-                    <div className="ls-stage-name">
-                      {STAGE_META[active] ?? active}
-                    </div>
-                    <div className="ls-stage-detail">
-                      {completedCount} of {STAGE_ORDER.length} steps
-                    </div>
-                  </div>
-                  <span className="spinner" />
-                </div>
-              </div>
-            ) : null}
+
+              {/* aria-live="polite" and aria-atomic="true" mean screen readers
+                  announce the current stage as it changes without cutting off
+                  whatever they're currently reading. */}
+              {!done && (
+                <p className="govuk-body" aria-live="polite" aria-atomic="true">
+                  <span
+                    className="govuk-spinner"
+                    style={{ verticalAlign: "middle", marginRight: "8px" }}
+                    role="status"
+                    aria-label="Loading"
+                  />
+                  {active ? (STAGE_META[active] ?? active) : "Starting…"}
+                  <span
+                    className="govuk-!-colour-secondary"
+                    style={{ marginLeft: "12px", fontSize: "0.875rem" }}
+                  >
+                    {fmt(elapsed)}
+                  </span>
+                </p>
+              )}
+
+              {/* All icons in the stage list are aria-hidden because the stage
+                  name text is the meaningful content. aria-current="step" marks
+                  the active item for screen readers. */}
+              <ul className="loading-stage-list" aria-label="Progress steps">
+                {STAGE_ORDER.map((key) => {
+                  const record = stages.find((s) => s.stage === key);
+                  const isActive = active === key;
+                  const isDone = !!record?.completedAt;
+                  const isPending = !record && !isActive;
+
+                  return (
+                    <li
+                      key={key}
+                      className={
+                        isDone ? "done" : isActive ? "active" : undefined
+                      }
+                      aria-current={isActive ? "step" : undefined}
+                    >
+                      {isDone ? (
+                        /* Tick mark */
+                        <svg
+                          className="loading-stage-done-icon"
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      ) : isActive ? (
+                        <span
+                          className="govuk-spinner"
+                          style={{ width: "16px", height: "16px" }}
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <svg
+                          className="loading-stage-pending-icon"
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <circle cx="10" cy="10" r="4" />
+                        </svg>
+                      )}
+                      {STAGE_META[key]}
+                      {isDone && record?.completedAt && (
+                        <span
+                          style={{
+                            marginLeft: "auto",
+                            fontSize: "0.75rem",
+                            color: "#505a5f",
+                          }}
+                        >
+                          done
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {done && (
+                <p className="govuk-body govuk-!-colour-secondary">
+                  Completed in {fmt(elapsed)} across {completedCount} steps.
+                </p>
+              )}
+
+            </div>
           </div>
-        </div>
+        </main>
       </div>
+
+      <footer className="govuk-footer">
+        <div className="govuk-width-container">
+          <div className="govuk-footer__meta">
+            <div className="govuk-footer__meta-item govuk-footer__meta-item--grow">
+              <p className="govuk-body-s govuk-!-colour-secondary">
+                VAT rates and rules are set by HMRC. This tool uses GOV.UK
+                guidance and is not a substitute for professional advice.
+              </p>
+            </div>
+          </div>
+        </div>
+      </footer>
     </>
   );
 }

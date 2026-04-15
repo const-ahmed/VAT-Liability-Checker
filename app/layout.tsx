@@ -1,36 +1,34 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import "govuk-frontend/dist/govuk/govuk-frontend.min.css";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://findvat.co.uk"),
   title: {
-    default: "FindVAT: VAT Helper",
-    template: "%s | FindVAT",
+    default: "VAT Liability Checker",
+    template: "%s | VAT Liability Checker",
   },
-  description: "A simple VAT helper to calculate and check VAT instantly.",
+  description: "Check the VAT liability of a supply under UK law.",
   openGraph: {
     type: "website",
     url: "https://findvat.co.uk",
-    title: "FindVAT: VAT Helper",
-    description: "A simple VAT helper to calculate and check VAT instantly.",
-    siteName: "FindVAT",
+    title: "VAT Liability Checker",
+    description: "Check the VAT liability of a supply under UK law.",
+    siteName: "VAT Liability Checker",
     images: [
       {
         url: "/og.png",
         width: 1200,
         height: 576,
-        alt: "FindVAT: VAT Helper",
+        alt: "VAT Liability Checker",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "FindVAT: VAT Helper",
-    description: "A simple VAT helper to calculate and check VAT instantly.",
+    title: "VAT Liability Checker",
+    description: "Check the VAT liability of a supply under UK law.",
     images: ["/og.png"],
   },
 };
@@ -46,8 +44,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    // govuk-template on <html> and govuk-template__body on <body> are required
+    // by the design system. Without them the background colour, font inheritance,
+    // and the header's full-width black bar all break.
+    <html lang="en" className="govuk-template">
+      <body className="govuk-template__body">
         {children}
         <Analytics />
       </body>

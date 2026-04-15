@@ -3,9 +3,6 @@
 import { useEffect, useState } from "react";
 import type { FlowResponse } from "@/lib/schemas/flow";
 import { Header } from "../ui/Header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { MiniSphere } from "../ui/MiniSphere";
 
 const RATE_LABELS: Record<"zero" | "reduced" | "standard" | "exempt", string> =
   {
@@ -15,12 +12,15 @@ const RATE_LABELS: Record<"zero" | "reduced" | "standard" | "exempt", string> =
     exempt: "Exempt",
   };
 
-function extractRate(
-  vatRate: "zero" | "reduced" | "standard" | "exempt" | null | undefined,
-): { label: string; kind: "zero" | "reduced" | "standard" | "exempt" } | null {
-  if (!vatRate) return null;
-  return { label: RATE_LABELS[vatRate], kind: vatRate };
-}
+const RATE_TAG_CLASS: Record<
+  "zero" | "reduced" | "standard" | "exempt",
+  string
+> = {
+  zero: "govuk-tag govuk-tag--green",
+  reduced: "govuk-tag govuk-tag--orange",
+  standard: "govuk-tag govuk-tag--blue",
+  exempt: "govuk-tag govuk-tag--purple",
+};
 
 type Props = {
   query: string;
@@ -29,7 +29,6 @@ type Props = {
 };
 
 export function AnswerScreen({ query, response, onReset }: Props) {
-  const [expandedCite, setExpandedCite] = useState<number | null>(null);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -38,119 +37,153 @@ export function AnswerScreen({ query, response, onReset }: Props) {
   }, []);
 
   const answer = response.answer!;
-  const rate = extractRate(answer.vatRate);
+  const vatRate = answer.vatRate as
+    | "zero"
+    | "reduced"
+    | "standard"
+    | "exempt"
+    | null
+    | undefined;
 
   return (
-    <div className="neu-page">
-      <Header onReset={onReset} />
+    <>
+      <Header />
 
-      <main
-        className="screen screen--top screen--fade"
-        data-visible={visible ? "true" : "false"}
-      >
-        <div className="screen-body screen-body--narrow">
-          <div className="section">
-            {/* Top strip — orb + query + status */}
-            <div className="top-strip">
-              <div className="orb" aria-hidden="true">
-                <MiniSphere color="#4caf82" />
-              </div>
-              <div className="query-block">
-                <div className="neu-label">Query</div>
-                <p className="query-text">&ldquo;{query}&rdquo;</p>
-              </div>
-              <Badge variant="neutral">Complete</Badge>
-            </div>
+      <div className="govuk-width-container">
+        <main
+          className={`govuk-main-wrapper anim-fade-in`}
+          id="main-content"
+          role="main"
+          style={{ opacity: visible ? 1 : 0, transition: "opacity 0.3s ease" }}
+        >
+          {/* Back link */}
+          <a
+            href="#"
+            className="govuk-back-link"
+            onClick={(e) => {
+              e.preventDefault();
+              onReset();
+            }}
+          >
+            New query
+          </a>
 
-            {/* Conclusion */}
-            <section className="section">
-              <div className="as-badges">
-                {rate && (
-                  <Badge
-                    variant="neutral"
-                    className={`rate-badge--${rate.kind}`}
-                  >
-                    {rate.label}
-                  </Badge>
-                )}
-                {response.needsReview && (
-                  <Badge className="warn-badge">⚠ Verify with advisor</Badge>
-                )}
-              </div>
-              <p className="as-conclusion-text">{answer.conclusion}</p>
-            </section>
+          <div className="govuk-grid-row">
+            <div className="govuk-grid-column-two-thirds">
 
-            {/* Reasoning */}
-            <section className="section">
-              <div className="neu-label">Reasoning</div>
-              <div className="section">
+              {/* Query recap */}
+              <p className="govuk-caption-xl">{query}</p>
+
+              {/* VAT rate result */}
+              <h1 className="govuk-heading-xl">VAT liability result</h1>
+              {/* The tag sits below the heading rather than inside it. govuk-tag
+                  is an inline labelling element and shouldn't replace heading
+                  text, which would break the heading hierarchy semantically. */}
+              {vatRate && (
+                <p>
+                  <strong className={RATE_TAG_CLASS[vatRate]}>
+                    {RATE_LABELS[vatRate]}
+                  </strong>
+                </p>
+              )}
+
+              {/* The ! icon is aria-hidden and the visually-hidden span prefixes
+                  the text with "Warning" for screen readers. Without this the
+                  icon conveys no meaning to assistive technology. */}
+              {response.needsReview && (
+                <div className="govuk-warning-text">
+                  <span className="govuk-warning-text__icon" aria-hidden="true">
+                    !
+                  </span>
+                  <strong className="govuk-warning-text__text">
+                    <span className="govuk-visually-hidden">Warning</span>
+                    This classification may be uncertain. Verify with a tax
+                    adviser before relying on it.
+                  </strong>
+                </div>
+              )}
+
+              {/* Conclusion */}
+              <div className="govuk-inset-text">
+                <p className="govuk-body">{answer.conclusion}</p>
+              </div>
+
+              {/* Reasoning */}
+              <h2 className="govuk-heading-m">Reasoning</h2>
+              <ul className="reasoning-list">
                 {answer.reasoning.map((bullet, i) => (
-                  <div key={i} className="tl-row tl-row--animated">
-                    <div className="tl-line tl-line--done" aria-hidden="true" />
-                    <p className="as-reason-text">{bullet}</p>
-                  </div>
+                  <li key={i} className="govuk-body">
+                    {bullet}
+                  </li>
                 ))}
-              </div>
-            </section>
+              </ul>
 
-            {/* Sources */}
-            {response.citations.length > 0 && (
-              <section className="section">
-                <div className="neu-label">Sources</div>
-                <div className="as-cites">
+              {/* Sources — govuk-details uses the native <details>/<summary>
+                  disclosure element which works without JS and is part of the
+                  GDS component library. */}
+              {response.citations.length > 0 && (
+                <>
+                  <h2 className="govuk-heading-m">Sources</h2>
                   {response.citations.map((c, i) => {
-                    const isOpen = expandedCite === i;
                     const label = c.basePath
                       .split("/")
                       .pop()
                       ?.replace(/-/g, " ");
-
                     return (
-                      <Button
-                        key={i}
-                        variant="neutral"
-                        data-active={isOpen ? "true" : "false"}
-                        onClick={() => setExpandedCite(isOpen ? null : i)}
-                        className="as-cite-btn"
-                      >
-                        <div className="as-cite-left">
-                          <div className="as-cite-meta">
+                      <details key={i} className="govuk-details">
+                        <summary className="govuk-details__summary">
+                          <span className="govuk-details__summary-text">
+                            {label} &mdash; paragraph {c.docParagraphIndex}
+                          </span>
+                        </summary>
+                        <div className="govuk-details__text">
+                          <p className="source-meta">
                             {label} · ¶{c.docParagraphIndex}
-                          </div>
-                          <div
-                            className="as-cite-snippet"
-                            data-open={isOpen ? "true" : "false"}
-                          >
-                            {c.snippet}
-                          </div>
+                          </p>
+                          <p className="govuk-body">{c.snippet}</p>
                         </div>
-                        <span className="as-cite-chevron" aria-hidden="true">
-                          {isOpen ? "▲" : "▼"}
-                        </span>
-                      </Button>
+                      </details>
                     );
                   })}
-                </div>
-              </section>
-            )}
+                </>
+              )}
 
-            {/* Actions */}
-            <div className="actions-row">
-              <Button variant="neutral" onClick={onReset}>
-                ← New query
-              </Button>
-              <a
-                className="as-link"
-                href="https://www.gov.uk/government/collections/vat-notices-numerical-order"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                ↗ GOV.UK VAT Notices
-              </a>
+              {/* Actions */}
+              <div className="govuk-button-group" style={{ marginTop: "32px" }}>
+                <button
+                  className="govuk-button govuk-button--secondary"
+                  onClick={onReset}
+                  type="button"
+                >
+                  Start a new query
+                </button>
+                <a
+                  className="govuk-link"
+                  href="https://www.gov.uk/government/collections/vat-notices-numerical-order"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  GOV.UK VAT Notices
+                </a>
+              </div>
+
+            </div>
+          </div>
+        </main>
+      </div>
+
+      <footer className="govuk-footer">
+        <div className="govuk-width-container">
+          <div className="govuk-footer__meta">
+            <div className="govuk-footer__meta-item govuk-footer__meta-item--grow">
+              <p className="govuk-body-s govuk-!-colour-secondary">
+                VAT rates and rules are set by HMRC. This tool uses GOV.UK
+                guidance and is not a substitute for professional advice.
+              </p>
             </div>
           </div>
         </div>
-      </main>
-    </div>
+      </footer>
+    </>
   );
 }

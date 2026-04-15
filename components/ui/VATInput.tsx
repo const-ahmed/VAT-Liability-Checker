@@ -6,6 +6,7 @@ interface VATInputProps {
   onSubmit: () => void;
   placeholder?: string;
   disabled?: boolean;
+  hasError?: boolean;
   inputRef?: React.RefObject<HTMLInputElement>;
 }
 
@@ -15,94 +16,56 @@ export default function VATInput({
   onSubmit,
   placeholder = 'e.g. "importing a car from Argentina"',
   disabled = false,
+  hasError = false,
   inputRef,
 }: VATInputProps) {
-  const [focused, setFocused] = React.useState(false);
-  const [btnHovered, setBtnHovered] = React.useState(false);
-
-  const canSubmit = !disabled && !!value.trim();
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (canSubmit) onSubmit();
+      if (!disabled && value.trim()) onSubmit();
     }
   };
 
+  // aria-describedby always includes the hint and adds the error message id
+  // when there is one. Screen readers announce both when the field is focused
+  // so users hear the context and the error without having to navigate to them.
+  const describedBy = [
+    "supply-hint",
+    hasError ? "supply-input-error" : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div
-      style={{
-        display: "flex",
-        background: "#fff",
-        borderRadius: 10,
-        border: "2px solid #0f172a",
-        padding: "6px 6px 6px 20px",
-        boxShadow: focused ? "6px 6px 0 #0f172a" : "4px 4px 0 #0f172a",
-        transform: focused ? "translate(-1px, -1px)" : "translate(0, 0)",
-        transition: "box-shadow 0.15s, transform 0.15s",
-        opacity: disabled ? 0.6 : 1,
-      }}
-    >
+    <div style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
       <input
         ref={inputRef}
         id="supply-input"
+        className={`govuk-input${hasError ? " govuk-input--error" : ""}`}
         type="text"
+        name="supply-input"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
         placeholder={placeholder}
         disabled={disabled}
         autoComplete="off"
         spellCheck={false}
-        style={{
-          flex: 1,
-          border: "none",
-          outline: "none",
-          fontSize: 16,
-          color: "#0f172a",
-          fontFamily: "inherit",
-          padding: "8px 0",
-          background: "transparent",
-        }}
+        aria-describedby={describedBy}
+        // aria-invalid signals the error state to assistive technology
+        // independently of the red border, which is a visual-only cue.
+        aria-invalid={hasError ? "true" : undefined}
+        style={{ flex: 1 }}
       />
+      {/* type="submit" so the form submits natively without JS. A type="button"
+          inside a form does nothing on its own when JavaScript is off. */}
       <button
-        onClick={() => {
-          if (canSubmit) onSubmit();
-        }}
-        disabled={!canSubmit}
-        aria-label="Submit"
-        style={{
-          background: canSubmit ? "#1d70b8" : "#93c5fd",
-          border: "2px solid #0f172a",
-          borderRadius: 7,
-          cursor: canSubmit ? "pointer" : "not-allowed",
-          width: 40,
-          height: 40,
-          display: "grid",
-          placeItems: "center",
-          flexShrink: 0,
-          boxShadow: btnHovered && canSubmit ? "none" : "2px 2px 0 #0f172a",
-          transform: btnHovered && canSubmit ? "translate(2px, 2px)" : "none",
-          transition: "box-shadow 0.15s, transform 0.15s, background 0.15s",
-        }}
-        onMouseEnter={() => setBtnHovered(true)}
-        onMouseLeave={() => setBtnHovered(false)}
+        className="govuk-button"
+        style={{ marginBottom: 0 }}
+        disabled={disabled || !value.trim()}
+        type="submit"
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <line x1="3" y1="8" x2="13" y2="8" />
-          <polyline points="9 4 13 8 9 12" />
-        </svg>
+        Check
       </button>
     </div>
   );
