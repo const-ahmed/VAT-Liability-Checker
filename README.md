@@ -4,7 +4,7 @@
 
 **FindVAT** is an AI-powered VAT liability lookup tool. Enter a supply (a product, service, or transaction) and the app returns its UK VAT liability (standard-rated, reduced-rated, zero-rated, or exempt), backed by citations from the relevant HMRC VAT Notice.
 
-Built by an HMRC compliance caseworker in the VAT regime, FindVAT uses a multi-step prompting pipeline to efficiently traverse all 109 VAT Notices in a cost-effective and evidence-based manner using GPT-4o-mini via the GOV.UK Content API.
+FindVAT uses a multi-step prompting pipeline to efficiently traverse all 109 VAT Notices in a cost-effective and evidence-based manner using GPT-4o-mini via the GOV.UK Content API.
 
 ---
 
