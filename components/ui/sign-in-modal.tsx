@@ -13,9 +13,11 @@ import { motion } from "motion/react";
 export default function SignInModal({
   onClose,
   onSuccess,
+  draft,
 }: {
   onClose?: () => void;
   onSuccess?: () => void;
+  draft?: string;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +27,7 @@ export default function SignInModal({
   async function handleSignIn() {
     const result = await authClient.signIn.email({ email, password });
     if (result.error) {
-      console.error(result.error);
+      toast.error(result.error.message ?? "Invalid email or password");
     } else {
       toast.success("Signed in!");
       onClose?.();
@@ -36,7 +38,7 @@ export default function SignInModal({
   async function handleSignUp() {
     const result = await authClient.signUp.email({ email, password, name });
     if (result.error) {
-      console.error(result.error);
+      toast.error(result.error.message ?? "Could not create account");
     } else {
       toast.success("Account created!");
       onClose?.();
@@ -75,7 +77,13 @@ export default function SignInModal({
         </button>
         {mode === "signIn" && (
           <>
-            <form onSubmit={(e) => { e.preventDefault(); handleSignIn(); }} className="flex flex-col gap-2">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSignIn();
+              }}
+              className="flex flex-col gap-2"
+            >
               <Input
                 placeholder="Email"
                 value={email}
@@ -95,7 +103,9 @@ export default function SignInModal({
               >
                 Forgot password?
               </button>
-              <Button type="submit" className="cursor-pointer">Sign in</Button>
+              <Button type="submit" className="cursor-pointer">
+                Sign in
+              </Button>
             </form>
             <div className="flex items-center gap-2 my-1">
               <hr className="flex-1 border-gray-200" />
@@ -104,7 +114,10 @@ export default function SignInModal({
             </div>
             <button
               className="flex items-center justify-center gap-2 w-full bg-black text-white rounded-md py-2 px-4 hover:bg-gray-900 cursor-pointer"
-              onClick={() => authClient.signIn.social({ provider: "github" })}
+              onClick={() => {
+                if (draft) sessionStorage.setItem("pending_draft", draft);
+                authClient.signIn.social({ provider: "github" });
+              }}
             >
               <FaGithub size={18} /> Continue with GitHub
             </button>
@@ -122,7 +135,13 @@ export default function SignInModal({
 
         {mode === "signUp" && (
           <>
-            <form onSubmit={(e) => { e.preventDefault(); handleSignUp(); }} className="flex flex-col gap-2">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSignUp();
+              }}
+              className="flex flex-col gap-2"
+            >
               <Input
                 placeholder="Name"
                 value={name}
@@ -167,12 +186,17 @@ export default function SignInModal({
               onChange={(e) => setEmail(e.target.value)}
             />
             <Button
-              onClick={() =>
-                authClient.requestPasswordReset({
+              onClick={async () => {
+                const result = await authClient.requestPasswordReset({
                   email,
                   redirectTo: "/reset-password",
-                })
-              }
+                });
+                if (result.error) {
+                  toast.error(result.error.message ?? "Could not send reset link");
+                } else {
+                  toast.success("Reset link sent!");
+                }
+              }}
             >
               Send reset link
             </Button>

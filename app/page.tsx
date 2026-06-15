@@ -89,6 +89,14 @@ export default function Page() {
     scrollRef.current.scrollIntoView({ block: "end", behavior: "smooth" });
   }, [rounds.length, loading, error]);
 
+  useEffect(() => {
+    const pendingDraft = sessionStorage.getItem("pending_draft");
+    if (pendingDraft) {
+      setDraft(pendingDraft);
+      sessionStorage.removeItem("pending_draft");
+    }
+  }, []);
+
   function startFresh() {
     setSubmittedQuery(null);
     setRounds([]);
@@ -163,6 +171,7 @@ export default function Page() {
             <SignInModal
               onClose={() => setShowSignInModal(false)}
               onSuccess={signInAndSubmit}
+              draft={draft}
             />
           )}
         </AnimatePresence>
