@@ -25,12 +25,14 @@ export function InitialScreen({
   loading,
   error,
   onSubmitInitial,
+  onOpenModal,
 }: {
   draft: string;
   setDraft: (v: string) => void;
   loading: boolean;
   error: string | null;
   onSubmitInitial: () => void;
+  onOpenModal?: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [phIdx, setPhIdx] = useState(0);
@@ -51,7 +53,7 @@ export function InitialScreen({
 
   return (
     <div className="neu-page">
-      <Header />
+      <Header onOpenModal={onOpenModal} />
 
       <main className="initial-screen">
         <div className="initial-hero">

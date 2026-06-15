@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence } from "motion/react";
+import SignInModal from "@/components/ui/sign-in-modal";
+import { authClient } from "@/lib/auth-client";
 
 import type { FlowResponse } from "@/lib/schemas/flow";
 
@@ -31,6 +34,8 @@ type PendingRequest = {
 };
 
 export default function Page() {
+  const { data: session } = authClient.useSession();
+  const [showSignInModal, setShowSignInModal] = useState(false);
   const [draft, setDraft] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState<string | null>(null);
 
@@ -99,13 +104,20 @@ export default function Page() {
   }
 
   function handleStreamError(msg: string) {
+    startFresh();
     setError(msg);
-    setLoading(false);
-    setPendingRequest(null);
   }
 
   // Initial submit
   function submitInitial() {
+    if (!session) {
+      setShowSignInModal(true);
+      return;
+    }
+    signInAndSubmit();
+  }
+
+  function signInAndSubmit() {
     const q = draft.trim();
     if (!q) return;
     startFresh();
@@ -130,13 +142,24 @@ export default function Page() {
 
   if (!isActive) {
     return (
-      <InitialScreen
-        draft={draft}
-        setDraft={setDraft}
-        loading={loading}
-        error={error}
-        onSubmitInitial={submitInitial}
-      />
+      <>
+        <InitialScreen
+          draft={draft}
+          setDraft={setDraft}
+          loading={loading}
+          error={error}
+          onSubmitInitial={submitInitial}
+          onOpenModal={() => setShowSignInModal(true)}
+        />
+        <AnimatePresence>
+          {showSignInModal && (
+            <SignInModal
+              onClose={() => setShowSignInModal(false)}
+              onSuccess={signInAndSubmit}
+            />
+          )}
+        </AnimatePresence>
+      </>
     );
   }
 

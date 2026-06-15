@@ -1,20 +1,27 @@
 // Header.tsx
 // Shared across all pages. Styles in globals.css under .header-*.
 //   onBack     — shows a back chevron for inner pages
-//   onReset    — called when the FINDVAT wordmark is clicked (e.g. to reset state)
 //   rightSlot  — defaults to version badge, pass null to hide
+"use client";
+
 import Link from "next/link";
 import { NeuBadge } from "@/components/ui/NeuSurface";
+import { Button } from "./button";
+import { authClient } from "@/lib/auth-client";
+import { toast } from "sonner";
 
 export function Header({
   onBack,
   onReset,
   rightSlot,
+  onOpenModal,
 }: {
   onBack?: () => void;
   onReset?: () => void;
   rightSlot?: React.ReactNode;
+  onOpenModal?: () => void;
 }) {
+  const { data, isPending } = authClient.useSession();
   return (
     <header className="header">
       <div className="header-left">
@@ -46,7 +53,23 @@ export function Header({
         {rightSlot !== undefined ? (
           rightSlot
         ) : (
-          <NeuBadge>UK VAT · 2026</NeuBadge>
+          <>
+            {data ? (
+              <Button
+                className="header-wordmark"
+                onClick={async () => { await authClient.signOut(); toast.success("Signed out!"); }}
+              >
+                Sign out
+              </Button>
+            ) : (
+              <Button
+                className="header-wordmark"
+                onClick={() => onOpenModal?.()}
+              >
+                Log in
+              </Button>
+            )}
+          </>
         )}
       </div>
     </header>

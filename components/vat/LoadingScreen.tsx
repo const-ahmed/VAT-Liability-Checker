@@ -45,13 +45,20 @@ export function LoadingScreen({ request, onDone, onError }: Props) {
   // Stream the pipeline from /api/flow
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController(); // strict-mode double-fetch fix — delete if no longer needed
 
     async function run() {
       const res = await fetch("/api/flow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(request),
+        signal: controller.signal, // strict-mode double-fetch fix — delete if no longer needed
       });
+
+      if (!res.ok) {
+        onError(`Server error ${res.status}`);
+        return;
+      }
 
       if (!res.body) {
         onError("No response body");
@@ -107,9 +114,13 @@ export function LoadingScreen({ request, onDone, onError }: Props) {
       }
     }
 
-    run().catch((e) => onError(e?.message ?? "Fetch failed"));
+    run().catch((e) => {
+      if (e?.name === "AbortError") return; // strict-mode double-fetch fix — delete if no longer needed
+      onError(e?.message ?? "Fetch failed");
+    });
     return () => {
       cancelled = true;
+      controller.abort(); // strict-mode double-fetch fix — delete if no longer needed
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
