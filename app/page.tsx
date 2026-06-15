@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import SignInModal from "@/components/ui/sign-in-modal";
 import { authClient } from "@/lib/auth-client";
+import { toast } from "sonner";
 
 import type { FlowResponse } from "@/lib/schemas/flow";
 
@@ -35,6 +36,7 @@ type PendingRequest = {
 
 export default function Page() {
   const { data: session } = authClient.useSession();
+  const prevSessionRef = useRef<boolean>(false);
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [draft, setDraft] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState<string | null>(null);
@@ -65,6 +67,11 @@ export default function Page() {
     for (const r of rounds) map.set(r.id, r.answered);
     return map;
   }, [rounds]);
+
+  useEffect(() => {
+    if (session && !prevSessionRef.current) toast.success("Signed in!");
+    prevSessionRef.current = !!session;
+  }, [session]);
 
   useEffect(() => {
     if (!latest) return;

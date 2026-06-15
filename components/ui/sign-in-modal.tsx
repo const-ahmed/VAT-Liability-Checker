@@ -75,32 +75,35 @@ export default function SignInModal({
         </button>
         {mode === "signIn" && (
           <>
-            <Input
-              placeholder="Email"
-              value={email}
-              type="email"
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <Input
-              placeholder="Password"
-              value={password}
-              type="password"
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <button
-              className="text-xs text-gray-400 text-right cursor-pointer"
-              onClick={() => setMode("forgot")}
-            >
-              Forgot password?
-            </button>
-            <Button onClick={handleSignIn}>Sign in</Button>
+            <form onSubmit={(e) => { e.preventDefault(); handleSignIn(); }} className="flex flex-col gap-2">
+              <Input
+                placeholder="Email"
+                value={email}
+                type="email"
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <Input
+                placeholder="Password"
+                value={password}
+                type="password"
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="text-xs text-gray-400 cursor-pointer self-end"
+                onClick={() => setMode("forgot")}
+              >
+                Forgot password?
+              </button>
+              <Button type="submit" className="cursor-pointer">Sign in</Button>
+            </form>
             <div className="flex items-center gap-2 my-1">
               <hr className="flex-1 border-gray-200" />
               <span className="text-xs text-gray-400">or</span>
               <hr className="flex-1 border-gray-200" />
             </div>
             <button
-              className="flex items-center justify-center gap-2 w-full bg-black text-white rounded-md py-2 px-4 hover:bg-gray-900"
+              className="flex items-center justify-center gap-2 w-full bg-black text-white rounded-md py-2 px-4 hover:bg-gray-900 cursor-pointer"
               onClick={() => authClient.signIn.social({ provider: "github" })}
             >
               <FaGithub size={18} /> Continue with GitHub
@@ -119,25 +122,27 @@ export default function SignInModal({
 
         {mode === "signUp" && (
           <>
-            <Input
-              placeholder="Name"
-              value={name}
-              type="text"
-              onChange={(e) => setName(e.target.value)}
-            />
-            <Input
-              placeholder="Email"
-              value={email}
-              type="email"
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <Input
-              placeholder="Password"
-              value={password}
-              type="password"
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <Button onClick={handleSignUp}>Create account</Button>
+            <form onSubmit={(e) => { e.preventDefault(); handleSignUp(); }} className="flex flex-col gap-2">
+              <Input
+                placeholder="Name"
+                value={name}
+                type="text"
+                onChange={(e) => setName(e.target.value)}
+              />
+              <Input
+                placeholder="Email"
+                value={email}
+                type="email"
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <Input
+                placeholder="Password"
+                value={password}
+                type="password"
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <Button type="submit">Create account</Button>
+            </form>
             <p className="text-xs text-center text-gray-400">
               Already have an account?{" "}
               <button
