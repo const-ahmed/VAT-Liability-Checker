@@ -100,34 +100,44 @@ export function AnswerScreen({ query, response, onReset }: Props) {
                 <div className="as-cites">
                   {response.citations.map((c, i) => {
                     const isOpen = expandedCite === i;
-                    const label = c.basePath
-                      .split("/")
-                      .pop()
-                      ?.replace(/-/g, " ");
+                    const sectionNum = c.sectionTitle
+                      ? /^(\d+)\./.exec(c.sectionTitle)?.[1]
+                      : null;
 
                     return (
-                      <Button
-                        key={i}
-                        variant="neutral"
-                        data-active={isOpen ? "true" : "false"}
-                        onClick={() => setExpandedCite(isOpen ? null : i)}
-                        className="as-cite-btn"
-                      >
-                        <div className="as-cite-left">
-                          <div className="as-cite-meta">
-                            {label} · ¶{c.docParagraphIndex}
+                      <div key={i} className="as-cite-card">
+                        <Button
+                          variant="neutral"
+                          data-active={isOpen ? "true" : "false"}
+                          onClick={() => setExpandedCite(isOpen ? null : i)}
+                          className="as-cite-btn"
+                        >
+                          <div className="as-cite-left">
+                            <div className="as-cite-meta">
+                              {c.noticeTitle ?? c.basePath.split("/").pop()?.replace(/-/g, " ")}
+                              {sectionNum ? ` · Section ${sectionNum}` : ""}
+                            </div>
+                            <div
+                              className="as-cite-snippet"
+                              data-open={isOpen ? "true" : "false"}
+                            >
+                              {c.snippet}
+                            </div>
                           </div>
-                          <div
-                            className="as-cite-snippet"
-                            data-open={isOpen ? "true" : "false"}
-                          >
-                            {c.snippet}
-                          </div>
-                        </div>
-                        <span className="as-cite-chevron" aria-hidden="true">
-                          {isOpen ? "▲" : "▼"}
-                        </span>
-                      </Button>
+                          <span className="as-cite-chevron" aria-hidden="true">
+                            {isOpen ? "▲" : "▼"}
+                          </span>
+                        </Button>
+                        <a
+                          href={c.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="as-cite-newtab"
+                          aria-label="Open source on GOV.UK"
+                        >
+                          ↗
+                        </a>
+                      </div>
                     );
                   })}
                 </div>

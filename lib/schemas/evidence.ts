@@ -14,4 +14,7 @@ export const CitationSchema = z.object({
   docParagraphIndex: z.number().optional(), //distinguish the internal evidence pool index from the original doc's paragraph index, which is what we show the user.
 
   snippet: z.string(), //the text snippet shown to the user for this citation
+
+  noticeTitle: z.string().optional(), // official document title from GOV.UK API
+  sectionTitle: z.string().nullable().optional(), // h2 heading text the paragraph falls under
 });

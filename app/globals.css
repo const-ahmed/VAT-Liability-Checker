@@ -819,6 +819,23 @@
   font-size: var(--t-xs);
   color: var(--c-dim);
 }
+.as-cite-card {
+  position: relative;
+}
+.as-cite-newtab {
+  position: absolute;
+  top: var(--sp-2);
+  right: var(--sp-2);
+  font-size: var(--t-sm);
+  font-weight: 700;
+  color: var(--c-mid);
+  text-decoration: none;
+  line-height: 1;
+  z-index: 1;
+}
+.as-cite-newtab:hover {
+  color: var(--c-accent);
+}
 .as-link {
   font-size: var(--t-xs);
   color: var(--c-dim);
@@ -886,4 +903,8 @@
   font-size: var(--t-xs);
   line-height: 1.4;
   color: var(--c-mid);
+}
+
+.modal-input {
+  background-color: white;
 }

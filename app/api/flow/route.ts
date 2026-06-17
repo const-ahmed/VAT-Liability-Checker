@@ -18,8 +18,11 @@ type EvidencePara = {
   poolIndex: number;
   basePath: string;
   webUrl: string;
+  noticeTitle: string;
   docParagraphIndex: number;
   text: string;
+  sectionId: string | null;
+  sectionTitle: string | null;
 };
 
 type ProgressEvent =
@@ -209,10 +212,22 @@ function scoreParagraph(text: string, terms: string[]) {
   return score;
 }
 
-function mergeColonParagraphs(paragraphs: { index: number; text: string }[]) {
+function mergeColonParagraphs(
+  paragraphs: {
+    index: number;
+    text: string;
+    sectionId: string | null;
+    sectionTitle: string | null;
+  }[],
+) {
   // Ensure the model sees multi-line paragraphs as one chunk
   // for example, a condition followed by its consequence.
-  const merged: { index: number; text: string }[] = [];
+  const merged: {
+    index: number;
+    text: string;
+    sectionId: string | null;
+    sectionTitle: string | null;
+  }[] = [];
   let i = 0;
   while (i < paragraphs.length) {
     const current = paragraphs[i];
@@ -224,6 +239,8 @@ function mergeColonParagraphs(paragraphs: { index: number; text: string }[]) {
       merged.push({
         index: current.index,
         text: current.text + " " + paragraphs[i + 1].text,
+        sectionId: current.sectionId,
+        sectionTitle: current.sectionTitle,
       });
       i += 2;
     } else {
@@ -290,8 +307,11 @@ async function buildEvidencePool(
         candidates.push({
           basePath: doc.basePath,
           webUrl: doc.webUrl,
+          noticeTitle: doc.title,
           docParagraphIndex: p.index,
           text: p.text,
+          sectionId: p.sectionId,
+          sectionTitle: p.sectionTitle,
         });
       }
     }
@@ -692,11 +712,13 @@ export async function POST(req: Request) {
       // Evidence output shape sent to frontend.
       // paragraphIndex = poolIndex so citations stay stable across the response.
       const evidenceOut = evidence.map((e) => ({
-        url: e.webUrl,
+        url: e.sectionId ? `${e.webUrl}#${e.sectionId}` : e.webUrl,
         basePath: e.basePath,
+        noticeTitle: e.noticeTitle,
         paragraphIndex: e.poolIndex,
         docParagraphIndex: e.docParagraphIndex,
         snippet: e.text,
+        sectionTitle: e.sectionTitle,
       }));
 
       const maxIdx = evidence.length;
