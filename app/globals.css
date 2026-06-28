@@ -65,6 +65,12 @@
   --t-lg: clamp(16px, 1vw + 10px, 22px);
   --t-xl: clamp(20px, 1.4vw + 10px, 34px);
   --t-display: clamp(30px, 3.5vw + 14px, 76px);
+
+  --history-drawer-w: min(45vw, 480px);
+  --drawer-tab-w: clamp(36px, 3vw, 48px);
+  --drawer-tab-h: clamp(96px, 12vh, 136px);
+  --drawer-design-w: 480px;
+  --drawer-zoom: calc(var(--history-drawer-w) / var(--drawer-design-w));
 }
 
 .dark {
@@ -564,6 +570,13 @@
   }
   .hint-desktop {
     display: inline;
+  }
+}
+
+@media (orientation: portrait) and (max-width: 640px) {
+  :root {
+    --history-drawer-w: 100vw;
+    --drawer-zoom: 1;
   }
 }
 

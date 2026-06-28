@@ -12,6 +12,7 @@ import { InitialScreen } from "@/components/vat/InitialScreen";
 import { AnswerScreen } from "@/components/vat/AnswerScreen";
 import { ClarifierScreen } from "@/components/vat/ClarifierScreen";
 import { LoadingScreen } from "@/components/vat/LoadingScreen";
+import { HistoryDrawer } from "@/components/ui/history-drawer";
 
 type AnswersMap = Record<string, string>;
 
@@ -115,6 +116,17 @@ export default function Page() {
     ]);
     setLoading(false);
     setPendingRequest(null);
+    if (data.answer?.vatRate) {
+      fetch("/api/history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: submittedQuery,
+          vatRate: data.answer.vatRate,
+          citations: data.citations,
+        }),
+      });
+    }
     pendingAnsweredMetaRef.current = [];
   }
 
@@ -175,42 +187,49 @@ export default function Page() {
             />
           )}
         </AnimatePresence>
+        <HistoryDrawer />
       </>
     );
   }
 
   if (latest?.answer) {
     return (
-      <AnswerScreen
-        query={submittedQuery}
-        response={latest}
-        onReset={startFresh}
-      />
+      <>
+        <AnswerScreen
+          query={submittedQuery}
+          response={latest}
+          onReset={startFresh}
+        />
+        <HistoryDrawer />
+      </>
     );
   }
 
   if (latest?.questions.length) {
     return (
-      <ClarifierScreen
-        query={submittedQuery}
-        response={latest}
-        onSubmitAnswer={(questionId, value) => {
-          if (!latest || !submittedQuery) return;
-          const q = questions.find((q) => q.id === questionId);
-          const opt = q?.options.find((o) => o.value === value);
-          const answeredForThisRound: AnsweredPair[] = [
-            { id: questionId, value, label: opt?.label },
-          ];
-          pendingAnsweredMetaRef.current = answeredForThisRound;
-          setPendingRequest({
-            userText: submittedQuery,
-            answered: [{ id: questionId, value }],
-            state: latest.state,
-          });
-          setLoading(true);
-        }}
-        onReset={startFresh}
-      />
+      <>
+        <ClarifierScreen
+          query={submittedQuery}
+          response={latest}
+          onSubmitAnswer={(questionId, value) => {
+            if (!latest || !submittedQuery) return;
+            const q = questions.find((q) => q.id === questionId);
+            const opt = q?.options.find((o) => o.value === value);
+            const answeredForThisRound: AnsweredPair[] = [
+              { id: questionId, value, label: opt?.label },
+            ];
+            pendingAnsweredMetaRef.current = answeredForThisRound;
+            setPendingRequest({
+              userText: submittedQuery,
+              answered: [{ id: questionId, value }],
+              state: latest.state,
+            });
+            setLoading(true);
+          }}
+          onReset={startFresh}
+        />
+        <HistoryDrawer />
+      </>
     );
   }
 }
