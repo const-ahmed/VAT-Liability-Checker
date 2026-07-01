@@ -200,8 +200,8 @@ export function HistoryDrawer() {
                           style={{ zoom: "var(--drawer-zoom)" }}
                         >
                           {row.original.citations.length > 0 ? (
-                            <div className="flex flex-col gap-3">
-                              <p className="text-t-xs font-bold tracking-widest uppercase text-white">
+                            <div className="flex flex-col divide-y divide-white/20">
+                              <p className="text-t-xs font-bold py-3 tracking-widest uppercase text-white">
                                 Sources
                               </p>
                               {row.original.citations.map((c, i) => (
@@ -210,16 +210,9 @@ export function HistoryDrawer() {
                                   href={c.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="flex flex-col gap-1 hover:opacity-80"
+                                  className="flex flex-col gap-1 hover:opacity-80 py-3"
                                 >
-                                  <span className="text-t-xs font-bold uppercase tracking-wide text-(--c-accent)">
-                                    {c.noticeTitle ??
-                                      c.basePath
-                                        .split("/")
-                                        .pop()
-                                        ?.replace(/-/g, " ")}
-                                  </span>
-                                  <span className="text-t-xs text-white line-clamp-2">
+                                  <span className="text-t-xs text-white line-clamp-3">
                                     {c.snippet}
                                   </span>
                                 </a>
