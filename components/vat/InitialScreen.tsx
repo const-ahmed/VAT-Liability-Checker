@@ -5,6 +5,9 @@ import { Header } from "@/components/ui/Header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import VATInput from "../ui/VATInput";
+import { AnimatePresence } from "motion/react";
+import TermsModal from "@/components/ui/terms-modal";
+import PrivacyModal from "@/components/ui/privacy-modal";
 
 const PLACEHOLDERS = [
   'e.g. "importing a car from Argentina"',
@@ -36,6 +39,8 @@ export function InitialScreen({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [phIdx, setPhIdx] = useState(0);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   // Cycle placeholder when the field is empty
   useEffect(() => {
@@ -118,7 +123,28 @@ export function InitialScreen({
         </div>
       </main>
 
-      <footer className="footer"></footer>
+      <footer className="footer">
+        <p>
+          <button
+            className="underline cursor-pointer"
+            onClick={() => setShowTerms(true)}
+          >
+            Terms of Service
+          </button>
+          {" · "}
+          <button
+            className="underline cursor-pointer"
+            onClick={() => setShowPrivacy(true)}
+          >
+            Privacy Policy
+          </button>
+        </p>
+      </footer>
+
+      <AnimatePresence>
+        {showTerms && <TermsModal onClose={() => setShowTerms(false)} />}
+        {showPrivacy && <PrivacyModal onClose={() => setShowPrivacy(false)} />}
+      </AnimatePresence>
     </div>
   );
 }

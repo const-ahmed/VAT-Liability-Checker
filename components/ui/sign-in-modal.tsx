@@ -11,7 +11,9 @@ import { Label } from "./label";
 import { X } from "lucide-react";
 import { FaGithub } from "react-icons/fa";
 import { toast } from "sonner";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
+import TermsModal from "./terms-modal";
+import PrivacyModal from "./privacy-modal";
 
 export default function SignInModal({
   onClose,
@@ -27,6 +29,8 @@ export default function SignInModal({
   const [name, setName] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [mode, setMode] = useState<"signIn" | "signUp" | "forgot">("signIn");
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   async function handleSignIn() {
     const result = await authClient.signIn.email({ email, password });
@@ -59,7 +63,7 @@ export default function SignInModal({
       transition={{ duration: 0.2 }}
     >
       <motion.div
-        className="flex relative flex-col gap-2 bg-background p-6 rounded-lg shadow-lg w-full max-w-sm mx-4 overflow-y-auto max-h-[90vh]"
+        className="flex relative flex-col gap-2 bg-background p-6 rounded-lg shadow-shadow w-full max-w-sm mx-4 overflow-y-auto max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -163,7 +167,7 @@ export default function SignInModal({
                 <hr className="flex-1 border-gray-200" />
               </div>
               <button
-                className="flex items-center justify-center gap-2 w-full bg-black text-white rounded-md py-2 px-4 hover:bg-gray-900 cursor-pointer"
+                className="flex items-center justify-center gap-2 w-full bg-black text-white rounded-base py-2 px-4 hover:bg-gray-900 cursor-pointer"
                 onClick={() => {
                   if (draft) sessionStorage.setItem("pending_draft", draft);
                   authClient.signIn.social({ provider: "github" });
@@ -212,9 +216,24 @@ export default function SignInModal({
                   />
                   <Label
                     htmlFor="terms"
-                    className="text-xs text-gray-500 font-normal cursor-pointer"
+                    className="text-xs text-gray-500 font-normal"
                   >
-                    I agree to the Terms of Service and Privacy Policy
+                    I agree to the{" "}
+                    <button
+                      type="button"
+                      className="underline cursor-pointer"
+                      onClick={() => setShowTerms(true)}
+                    >
+                      Terms of Service
+                    </button>
+                    {" "}and{" "}
+                    <button
+                      type="button"
+                      className="underline cursor-pointer"
+                      onClick={() => setShowPrivacy(true)}
+                    >
+                      Privacy Policy
+                    </button>
                   </Label>
                 </div>
                 <Button type="submit" disabled={!agreed}>
@@ -225,6 +244,11 @@ export default function SignInModal({
           </Tabs>
         )}
       </motion.div>
+
+      <AnimatePresence>
+        {showTerms && <TermsModal onClose={() => setShowTerms(false)} />}
+        {showPrivacy && <PrivacyModal onClose={() => setShowPrivacy(false)} />}
+      </AnimatePresence>
     </motion.div>
   );
 }
