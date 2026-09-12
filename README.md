@@ -21,7 +21,7 @@ VAT liability in the UK is governed by 109 HMRC VAT Notices. Querying all of the
 1. **Classify**: The supply is classified into generic supply-type descriptions that map to notice titles.
 2. **Select**: Keyword scoring + a model call narrows the full index down to the minimum relevant notices (typically 1–5).
 3. **Fetch**: The relevant notices are fetched live from the GOV.UK Content API and their paragraphs are scored for relevance.
-4. **Analyse**: The model works through a fixed audit sequence — candidate relief, exclusion search, conflict check, default rate comparison — grounding each step in a citation before it either returns a liability conclusion or identifies a blocking condition it cannot resolve.
+4. **Analyse**: The model works through a fixed audit sequence (candidate relief, exclusion search, conflict check, default rate comparison), grounding each step in a citation before it either returns a liability conclusion or identifies a blocking condition it cannot resolve.
 5. **Clarify**: If a blocking condition exists, the model generates a single factual question (e.g. _"Is it sold above room temperature?"_) to resolve it. This repeats up to twice.
 6. **Answer**: A final conclusion is returned with VAT rate, reasoning bullets, and paragraph-level citations linking back to GOV.UK.
 
@@ -109,5 +109,5 @@ findvat/
 
 ## Author
 
-Built by Ahmed — HMRC compliance caseworker and software developer.  
+Built by Ahmed, HMRC compliance caseworker and software developer.  
 [GitHub](https://github.com/ec20468) · [LinkedIn](https://www.linkedin.com/in/ahmedahassan1)
