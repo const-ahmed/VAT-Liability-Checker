@@ -90,7 +90,35 @@
   line-height: 1.5;
 }
 
-/* Source citation details */
+/* Source citation card — toggle button + external link to the GOV.UK source */
+.source-card {
+  position: relative;
+  margin-bottom: 16px;
+}
+.source-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  text-align: left;
+  background: #f8f8f8;
+  border: 1px solid #b1b4b6;
+  padding: 12px 40px 12px 16px;
+  cursor: pointer;
+  font: inherit;
+}
+.source-toggle:hover {
+  background: #f3f2f1;
+}
+.source-toggle:focus {
+  outline: 3px solid #ffdd00;
+  outline-offset: 0;
+}
+.source-toggle__body {
+  flex: 1;
+  min-width: 0;
+}
 .source-meta {
   font-size: 0.875rem;
   color: #505a5f;
@@ -98,4 +126,33 @@
   font-weight: bold;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+.source-toggle__snippet {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #0b0c0c;
+  max-height: 2.8em;
+  overflow: hidden;
+}
+.source-toggle__snippet[data-open="true"] {
+  max-height: none;
+}
+.source-toggle__chevron {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  color: #505a5f;
+}
+.source-link {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #1d70b8;
+  text-decoration: none;
+  line-height: 1;
+}
+.source-link:hover {
+  color: #003078;
+  text-decoration: underline;
 }

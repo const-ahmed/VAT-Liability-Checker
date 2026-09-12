@@ -29,6 +29,7 @@ type Props = {
 };
 
 export function AnswerScreen({ query, response, onReset }: Props) {
+  const [expandedCite, setExpandedCite] = useState<number | null>(null);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -114,29 +115,51 @@ export function AnswerScreen({ query, response, onReset }: Props) {
                 ))}
               </ul>
 
-              {/* govuk-details is native <details>/<summary> — works without JS. */}
               {response.citations.length > 0 && (
                 <>
                   <h2 className="govuk-heading-m">Sources</h2>
                   {response.citations.map((c, i) => {
-                    const label = c.basePath
-                      .split("/")
-                      .pop()
-                      ?.replace(/-/g, " ");
+                    const isOpen = expandedCite === i;
+                    const sectionNum = c.sectionTitle
+                      ? /^(\d+)\./.exec(c.sectionTitle)?.[1]
+                      : null;
+                    const title =
+                      c.noticeTitle ?? c.basePath.split("/").pop()?.replace(/-/g, " ");
+
                     return (
-                      <details key={i} className="govuk-details">
-                        <summary className="govuk-details__summary">
-                          <span className="govuk-details__summary-text">
-                            {label} &mdash; paragraph {c.docParagraphIndex}
+                      <div key={i} className="source-card">
+                        <button
+                          type="button"
+                          className="source-toggle"
+                          aria-expanded={isOpen}
+                          onClick={() => setExpandedCite(isOpen ? null : i)}
+                        >
+                          <div className="source-toggle__body">
+                            <p className="source-meta">
+                              {title}
+                              {sectionNum ? ` · Section ${sectionNum}` : ""}
+                            </p>
+                            <p
+                              className="source-toggle__snippet"
+                              data-open={isOpen ? "true" : "false"}
+                            >
+                              {c.snippet}
+                            </p>
+                          </div>
+                          <span className="source-toggle__chevron" aria-hidden="true">
+                            {isOpen ? "▲" : "▼"}
                           </span>
-                        </summary>
-                        <div className="govuk-details__text">
-                          <p className="source-meta">
-                            {label} · ¶{c.docParagraphIndex}
-                          </p>
-                          <p className="govuk-body">{c.snippet}</p>
-                        </div>
-                      </details>
+                        </button>
+                        <a
+                          href={c.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="source-link"
+                          aria-label="Open source on GOV.UK"
+                        >
+                          ↗
+                        </a>
+                      </div>
                     );
                   })}
                 </>
